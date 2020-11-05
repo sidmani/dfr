@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import torch
-from dfr.raycast import buildFrustum
+from dfr.raycast import buildFrustum, enumerateRays
 
 def test_buildFrustum_cameraD():
     cameraD = buildFrustum(2*np.pi/3, 4)[0]
@@ -31,3 +31,72 @@ def test_buildFrustum_segment():
             assert near[i, j] > 0.0
             # check that segment is shorter than diameter of sphere, with float err
             assert far[i, j] - near[i, j] < 2.0 + 10e-10
+
+def test_enumerateRays_shape():
+    batch_size = 5
+    px = 4
+
+    phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
+    thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px)
+    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    assert rays.shape == (batch_size, px, px, 3)
+
+def test_enumerateRays_zMatch():
+    batch_size = 5
+    px = 4
+
+    phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
+    thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px)
+    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+
+    first = rays[0]
+    assert first.shape == (px, px, 3)
+
+    # . * * .
+    # * . . *
+    # * . . *
+    # . * * .
+    # starred rays should have same z value
+    assert (first[0, 1, 2]
+            == first[0, 2, 2]
+            == first[1, 0, 2]
+            == first[1, 3, 2]
+            == first[2, 0, 2]
+            == first[2, 3, 2]
+            == first[3, 1, 2]
+            == first[3, 2, 2])
+
+def test_enumerateRays_signs():
+    batch_size = 5
+    px = 4
+
+    phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
+    thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px)
+    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+
+    first = rays[0]
+    # all z values are positive
+    for i in range(4):
+        for j in range(4):
+            assert first[i, j, 2] > 0
+
+    # y axis is positive for top half of image, negative for bottom half
+    for i in range(2):
+        for j in range(4):
+            assert first[i, j, 1] > 0
+
+    for i in range(2):
+        for j in range(4):
+            assert first[i+2, j, 1] < 0
+
+    # x axis is negative for left half, positive for right half
+    for i in range(4):
+        for j in range(2):
+            assert first[i, j, 0] < 0
+
+    for i in range(4):
+        for j in range(2):
+            assert first[i, j+2, 0] > 0

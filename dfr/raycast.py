@@ -15,6 +15,7 @@ def buildFrustum(fov, px, device=None):
     center = cameraD * (torch.cos(phiSpace) + torch.cos(thetaSpace) - 1)
 
     # clamp negative values to 0 before sqrt
+    # TODO: also make small values (tangents) 0
     radicand = torch.clamp(center ** 2 - cameraD ** 2 + 1.0, min=0.0)
     delta = torch.sqrt(radicand)
 
@@ -23,14 +24,7 @@ def buildFrustum(fov, px, device=None):
 
     return (cameraD, phiSpace, thetaSpace, segmentNear, segmentFar)
 
-def enumerateRays(phis, thetas, phiSpace, thetaSpace, cameraD):
-    # x: the cartesian vector position of the camera
-    x = cameraD * torch.stack([
-        torch.cos(phis) * torch.sin(thetas),
-        torch.sin(phis),
-        torch.cos(phis) * torch.cos(thetas)
-    ])
-
+def enumerateRays(phis, thetas, phiSpace, thetaSpace):
     phiBatch = torch.add(
                 phis.view(-1, 1, 1),
                 phiSpace.repeat(phis.shape[0], 1, 1))
@@ -39,13 +33,11 @@ def enumerateRays(phis, thetas, phiSpace, thetaSpace, cameraD):
                 thetaSpace.repeat(thetas.shape[0], 1, 1))
 
     cos_phi = torch.cos(phiBatch)
-    rays = torch.transpose(
-               torch.stack([
-                   cos_phi * torch.sin(thetaBatch),
-                   torch.sin(phiBatch),
-                   cos_phi * torch.cos(thetaBatch),
-               ]),
-               (2, 1, 0))
+    return torch.stack([
+               cos_phi * torch.sin(thetaBatch),
+               torch.sin(phiBatch),
+               cos_phi * torch.cos(thetaBatch),
+           ], dim=3)
 
 # sampling schemes
 def uniform_sample(s_1, s_2, count):
