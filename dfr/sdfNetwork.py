@@ -3,12 +3,8 @@ import torch.nn as nn
 import numpy as np
 from .geometric import geometric_init
 
-class DeepSDFDecoder(nn.Module):
-    def __init__(self,
-                 latentSize=256,
-                 width=512,
-                 weightNorm=False):
-
+class SDFNetwork(nn.Module):
+    def __init__(self, latentSize=256, width=512, weightNorm=False):
         assert width > latentSize + 3
 
         self.layers = nn.ModuleList([
