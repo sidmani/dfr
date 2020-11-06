@@ -1,7 +1,19 @@
 import pytest
 import numpy as np
 import torch
-from dfr.raycast import buildFrustum, enumerateRays, sampleRandom, sampleUniform, sampleStratified
+from dfr.raycast import buildFrustum, enumerateRays, sampleRandom, sampleUniform, sampleStratified, sphereToRect
+
+def test_sphereToRect_zAxis():
+    v = sphereToRect(torch.zeros(1), torch.zeros(1), 1.0)
+    assert torch.allclose(v, torch.tensor([0.0, 0.0, 1.0]), atol=5e-7)
+
+def test_sphereToRect_yAxis():
+    v = sphereToRect(torch.zeros(1), torch.tensor([np.pi / 2.0]), 1.0)
+    assert torch.allclose(v, torch.tensor([0.0, 1.0, 0.0]), atol=5e-7)
+
+def test_sphereToRect_xAxis():
+    v = sphereToRect(torch.tensor([np.pi / 2.0]), torch.zeros(1), 1.0)
+    assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
 
 def test_buildFrustum_cameraD():
     cameraD = buildFrustum(2*np.pi/3, 4)[0]
@@ -9,7 +21,7 @@ def test_buildFrustum_cameraD():
     assert type(cameraD) == np.float64
 
 def test_buildFrustum_angleSpace():
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi, 4)
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4)
     assert phiSpace.shape == (4, 4)
     assert thetaSpace.shape == (4, 4)
 
@@ -17,11 +29,15 @@ def test_buildFrustum_angleSpace():
     assert torch.equal(phiSpace[:, 0], phiSpace[:, 3])
     assert torch.equal(thetaSpace[0, :], thetaSpace[3, :])
 
+def test_buildFrustum_quadrants():
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4)
+
     # check quadrants are oriented correctly
-    assert phiSpace[0, 0] > 0
-    assert thetaSpace[0, 0] < 0
-    assert phiSpace[3, 3] < 0
-    assert thetaSpace[3, 3] > 0
+    assert 0 < thetaSpace[3, 3] < np.pi
+    assert np.pi < thetaSpace[0, 0] < np.pi * 2
+
+    assert 0 < phiSpace[0, 0] < np.pi / 2
+    assert -np.pi / 2 < phiSpace[3, 3] < 0
 
 def test_buildFrustum_segment():
     _, _, _, near, far = buildFrustum(np.pi/2, 12)
@@ -59,14 +75,13 @@ def test_enumerateRays_zMatch():
     # * . . *
     # . * * .
     # starred rays should have same z value
-    assert (first[0, 1, 2]
-            == first[0, 2, 2]
-            == first[1, 0, 2]
-            == first[1, 3, 2]
-            == first[2, 0, 2]
-            == first[2, 3, 2]
-            == first[3, 1, 2]
-            == first[3, 2, 2])
+    assert torch.allclose(first[0, 1, 2], first[0, 2, 2])
+    assert torch.allclose(first[0, 1, 2], first[1, 0, 2])
+    assert torch.allclose(first[0, 1, 2], first[1, 3, 2])
+    assert torch.allclose(first[0, 1, 2], first[2, 0, 2])
+    assert torch.allclose(first[0, 1, 2], first[2, 3, 2])
+    assert torch.allclose(first[0, 1, 2], first[3, 1, 2])
+    assert torch.allclose(first[0, 1, 2], first[3, 2, 2])
 
 def test_enumerateRays_signs():
     batch_size = 5
@@ -78,10 +93,10 @@ def test_enumerateRays_signs():
     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
 
     first = rays[0]
-    # all z values are positive
+    # all z values are negative
     for i in range(4):
         for j in range(4):
-            assert first[i, j, 2] > 0
+            assert first[i, j, 2] < 0
 
     # y axis is positive for top half of image, negative for bottom half
     for i in range(2):

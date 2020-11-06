@@ -5,14 +5,21 @@ def buildFrustum(fov, px, device=None):
     # D: the radial distance of the camera from the origin
     cameraD = 1.0 / np.sin(fov / 2.0)
 
+    # theta increases counterclockwise in the zx plane
+    # phi increases clockwise in the zy plane
     thetaSpace = torch.linspace(
-        -fov / 2.0,
         fov / 2.0,
+        -fov / 2.0,
         steps=px,
-        device=device).repeat(px, 1)
-    phiSpace = torch.transpose(torch.flip(thetaSpace, [1]), 0, 1)
+        device=device).repeat(px, 1) + np.pi
+    phiSpace = torch.transpose(torch.linspace(
+        fov / 2.0,
+        -fov / 2.0,
+        steps=px,
+        device=device).repeat(px, 1), 0, 1)
 
-    center = cameraD * (torch.cos(phiSpace) + torch.cos(thetaSpace) - 1)
+    # cos(theta - pi) = cos(pi - theta) = -cos(theta)
+    center = cameraD * (torch.cos(phiSpace) - torch.cos(thetaSpace) - 1)
 
     # clamp negative values to 0 before sqrt
     radicand = torch.clamp(center ** 2 - cameraD ** 2 + 1.0, min=0.0)
@@ -52,11 +59,12 @@ def sampleRandom(near, far, count, device):
 
 def sampleUniform(near, far, count, device):
     # TODO: repeat/permute might be possible in 1 op
-    divs = torch.linspace(0.0, 1.0, count, device=device).repeat(*near.shape, 1).permute(2, 0, 1)
+    divs = torch.linspace(0.0, 1.0, count, device=device).expand(*near.shape, 5).permute(2, 0, 1)
     return ((far - near) * divs + near).permute(1, 2, 0)
 
 def sampleStratified(near, far, count, device):
     n = float(count)
-    divs = torch.linspace(0.0, 1.0, count, device=device).repeat(*near.shape, 1).permute(2, 0, 1)
+    divs = torch.linspace(0.0, 1.0, count, device=device).expand(*near.shape, 5).permute(2, 0, 1)
+    # TODO: double-check ranges
     rand = torch.rand(count, *near.shape) / (n - 1)
     return ((far - near) * (divs + rand) * (n - 1) / n + near).permute(1, 2, 0)
