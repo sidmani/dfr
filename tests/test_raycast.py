@@ -104,14 +104,14 @@ def test_enumerateRays_signs():
 def test_sampleUniform():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleUniform(near, far, 5)
+    samples = sampleUniform(near, far, 5, device=None)
     assert samples.shape == (4, 4, 5)
     assert torch.equal(samples[0, 0], torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0]))
 
 def test_sampleRandom():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleRandom(near, far, 5)
+    samples = sampleRandom(near, far, 5, device=None)
     assert samples.shape == (4, 4, 5)
     # check sorted increasing along each ray
     prev = -1
@@ -122,7 +122,7 @@ def test_sampleRandom():
 def test_sampleStratified():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleStratified(near, far, 5)
+    samples = sampleStratified(near, far, 5, device=None)
     assert samples.shape == (4, 4, 5)
     # check that samples are in evenly-spaced divisions
     for k in range(4):

@@ -23,6 +23,7 @@ def geometric_init(layers, r=0.98, dropout=0.0):
 
 class SDFNetwork(nn.Module):
     def __init__(self, latentSize=256, width=512, weightNorm=False):
+        super().__init__()
         assert width > latentSize + 3
 
         self.layers = nn.ModuleList([
