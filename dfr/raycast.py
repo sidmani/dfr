@@ -40,15 +40,17 @@ def enumerateRays(phis, thetas, phiSpace, thetaSpace):
            ], dim=3)
 
 # sampling schemes
-def uniform_sample(s_1, s_2, count):
-    divs = np.tile(np.linspace(0.0, 1.0, count, endpoint=False), (s_1.shape[0], 1))
-    return (divs.T * (s_2 - s_1) + s_1).T
+def sampleRandom(near, far, count):
+    rand = torch.sort(torch.rand(count, *near.shape), dim=0)[0]
+    return ((far - near) * rand + near).permute(1, 2, 0)
 
-def random_sample(s_1, s_2, count):
-    rands = np.random.rand(s_1.shape[0], count)
-    return (rands.T * (s_2 - s_1) + s_1).T
+def sampleUniform(near, far, count):
+    # TODO: repeat/permute might be possible in 1 op
+    divs = torch.linspace(0.0, 1.0, count).repeat(*near.shape, 1).permute(2, 0, 1)
+    return ((far - near) * divs + near).permute(1, 2, 0)
 
-def stratified_random_sample(s_1, s_2, count):
-    divs = np.tile(np.linspace(0.0, 1.0, count, endpoint=False), (s_1.shape[0], 1))
-    rands = np.random.rand(divs.shape) / float(count)
-    return ((divs + rands).T * (s_2 - s_1) + s_1).T
+def sampleStratified(near, far, count):
+    n = float(count)
+    divs = torch.linspace(0.0, 1.0, count).repeat(*near.shape, 1).permute(2, 0, 1)
+    rand = torch.rand(count, *near.shape) / (n - 1)
+    return ((far - near) * (divs + rand) * (n - 1) / n + near).permute(1, 2, 0)

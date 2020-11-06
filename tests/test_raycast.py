@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import torch
-from dfr.raycast import buildFrustum, enumerateRays
+from dfr.raycast import buildFrustum, enumerateRays, sampleRandom, sampleUniform, sampleStratified
 
 def test_buildFrustum_cameraD():
     cameraD = buildFrustum(2*np.pi/3, 4)[0]
@@ -100,3 +100,33 @@ def test_enumerateRays_signs():
     for i in range(4):
         for j in range(2):
             assert first[i, j+2, 0] > 0
+
+def test_sampleUniform():
+    near = torch.zeros(4, 4)
+    far = torch.ones(4, 4) * 4.0
+    samples = sampleUniform(near, far, 5)
+    assert samples.shape == (4, 4, 5)
+    assert torch.equal(samples[0, 0], torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0]))
+
+def test_sampleRandom():
+    near = torch.zeros(4, 4)
+    far = torch.ones(4, 4) * 4.0
+    samples = sampleRandom(near, far, 5)
+    assert samples.shape == (4, 4, 5)
+    # check sorted increasing along each ray
+    prev = -1
+    for i in range(5):
+        assert samples[0, 0, i] > prev
+        prev = samples[0, 0, i]
+
+def test_sampleStratified():
+    near = torch.zeros(4, 4)
+    far = torch.ones(4, 4) * 4.0
+    samples = sampleStratified(near, far, 5)
+    assert samples.shape == (4, 4, 5)
+    # check that samples are in evenly-spaced divisions
+    for k in range(4):
+        for j in range(4):
+            for i in range(5):
+                x = samples[j, k, i]
+                assert float(i * 0.8) < x < float((i + 1) * 0.8)
