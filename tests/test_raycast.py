@@ -1,7 +1,8 @@
 import pytest
 import numpy as np
 import torch
-from dfr.raycast import buildFrustum, enumerateRays, sampleRandom, sampleUniform, sampleStratified, sphereToRect
+from dfr.raycast.frustum import buildFrustum, enumerateRays, sphereToRect
+from dfr.raycast.sample import sampleRandom, sampleUniform, sampleStratified, scaleRays
 
 def test_sphereToRect_zAxis():
     v = sphereToRect(torch.zeros(1), torch.zeros(1), 1.0)
@@ -16,12 +17,12 @@ def test_sphereToRect_xAxis():
     assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
 
 def test_buildFrustum_cameraD():
-    cameraD = buildFrustum(2*np.pi/3, 4)[0]
+    cameraD = buildFrustum(2*np.pi/3, 4, device=None)[0]
     assert cameraD > 1.0
     assert type(cameraD) == np.float64
 
 def test_buildFrustum_angleSpace():
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4)
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4, device=None)
     assert phiSpace.shape == (4, 4)
     assert thetaSpace.shape == (4, 4)
 
@@ -30,7 +31,7 @@ def test_buildFrustum_angleSpace():
     assert torch.equal(thetaSpace[0, :], thetaSpace[3, :])
 
 def test_buildFrustum_quadrants():
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4)
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4, device=None)
 
     # check quadrants are oriented correctly
     assert 0 < thetaSpace[3, 3] < np.pi
@@ -40,7 +41,7 @@ def test_buildFrustum_quadrants():
     assert -np.pi / 2 < phiSpace[3, 3] < 0
 
 def test_buildFrustum_segment():
-    _, _, _, near, far = buildFrustum(np.pi/2, 12)
+    _, _, _, near, far = buildFrustum(np.pi/2, 12, device=None)
     for i in range(12):
         for j in range(12):
             assert near[i, j] <= far[i, j]
@@ -54,7 +55,7 @@ def test_enumerateRays_shape():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px)
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
     assert rays.shape == (batch_size, px, px, 3)
 
@@ -64,7 +65,7 @@ def test_enumerateRays_zMatch():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px)
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
 
     first = rays[0]
@@ -89,7 +90,7 @@ def test_enumerateRays_signs():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px)
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
 
     first = rays[0]
@@ -126,11 +127,11 @@ def test_sampleUniform():
 def test_sampleRandom():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleRandom(near, far, 5, device=None)
-    assert samples.shape == (4, 4, 5)
+    samples = sampleRandom(near, far, 10, device=None)
+    assert samples.shape == (4, 4, 10)
     # check sorted increasing along each ray
     prev = -1
-    for i in range(5):
+    for i in range(10):
         assert samples[0, 0, i] > prev
         prev = samples[0, 0, i]
 
@@ -145,3 +146,35 @@ def test_sampleStratified():
             for i in range(5):
                 x = samples[j, k, i]
                 assert float(i * 0.8) < x < float((i + 1) * 0.8)
+
+def test_scaleRays():
+    batch = 7
+    sampleCount = 5
+
+    (cameraD,
+     phiSpace,
+     thetaSpace,
+     segmentNear,
+     segmentFar) = buildFrustum(2 * np.pi / 3, 4, device=None)
+
+    phis = torch.rand(batch)
+    thetas = torch.rand(batch)
+
+    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    samples = sampleUniform(segmentNear, segmentFar, sampleCount, device=None)
+    cameraLoc = sphereToRect(phis, thetas, cameraD)
+
+    hitMask = (segmentFar - segmentNear) > 1e-10
+
+    scaledRays = scaleRays(rays[:, hitMask], samples[hitMask], cameraLoc)
+    assert scaledRays.shape == (batch, rays[:, hitMask].shape[1], sampleCount, 3)
+
+    # check that all the points on each ray are collinear
+    for j in range(scaledRays.shape[1]):
+        ray0 = scaledRays[0, j, 0] - cameraLoc[0]
+        ray0_unit = ray0 / torch.norm(ray0)
+
+        for i in range(sampleCount):
+            ray_i = scaledRays[0, j, i] - cameraLoc[0]
+            ray_i_unit = ray_i / torch.norm(ray_i)
+            assert torch.allclose(ray0_unit, ray_i_unit)
