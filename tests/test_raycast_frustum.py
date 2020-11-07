@@ -1,8 +1,6 @@
-import pytest
 import numpy as np
 import torch
 from dfr.raycast.frustum import buildFrustum, enumerateRays, sphereToRect
-from dfr.raycast.sample import sampleRandom, sampleUniform, sampleStratified, scaleRays
 
 def test_sphereToRect_zAxis():
     v = sphereToRect(torch.zeros(1), torch.zeros(1), 1.0)
@@ -15,6 +13,11 @@ def test_sphereToRect_yAxis():
 def test_sphereToRect_xAxis():
     v = sphereToRect(torch.tensor([np.pi / 2.0]), torch.zeros(1), 1.0)
     assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
+
+def test_sphereToRect_xAxis():
+    v = sphereToRect(torch.tensor([np.pi / 2.0]), torch.zeros(1), 1.0)
+    assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
+
 
 def test_buildFrustum_cameraD():
     cameraD = buildFrustum(2*np.pi/3, 4, device=None)[0]
@@ -55,7 +58,8 @@ def test_enumerateRays_shape():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
+    phiSpace = torch.rand(4, 4)
+    thetaSpace = torch.rand(4, 4)
     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
     assert rays.shape == (batch_size, px, px, 3)
 
@@ -85,7 +89,6 @@ def test_enumerateRays_zMatch():
     assert torch.allclose(first[0, 1, 2], first[3, 2, 2])
 
 def test_enumerateRays_signs():
-    batch_size = 5
     px = 4
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
@@ -117,64 +120,86 @@ def test_enumerateRays_signs():
         for j in range(2):
             assert first[i, j+2, 0] > 0
 
-def test_sampleUniform():
-    near = torch.zeros(4, 4)
-    far = torch.ones(4, 4) * 4.0
-    samples = sampleUniform(near, far, 5, device=None)
-    assert samples.shape == (4, 4, 5)
-    assert torch.equal(samples[0, 0], torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0]))
+def test_enumerateRays_signs_theta_pi():
+    px = 4
 
-def test_sampleRandom():
-    near = torch.zeros(4, 4)
-    far = torch.ones(4, 4) * 4.0
-    samples = sampleRandom(near, far, 10, device=None)
-    assert samples.shape == (4, 4, 10)
-    # check sorted increasing along each ray
-    prev = -1
-    for i in range(10):
-        assert samples[0, 0, i] > prev
-        prev = samples[0, 0, i]
-
-def test_sampleStratified():
-    near = torch.zeros(4, 4)
-    far = torch.ones(4, 4) * 4.0
-    samples = sampleStratified(near, far, 5, device=None)
-    assert samples.shape == (4, 4, 5)
-    # check that samples are in evenly-spaced divisions
-    for k in range(4):
-        for j in range(4):
-            for i in range(5):
-                x = samples[j, k, i]
-                assert float(i * 0.8) < x < float((i + 1) * 0.8)
-
-def test_scaleRays():
-    batch = 7
-    sampleCount = 5
-
-    (cameraD,
-     phiSpace,
-     thetaSpace,
-     segmentNear,
-     segmentFar) = buildFrustum(2 * np.pi / 3, 4, device=None)
-
-    phis = torch.rand(batch)
-    thetas = torch.rand(batch)
-
+    phis = torch.tensor([0.0])
+    thetas = torch.tensor([np.pi])
+    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
-    samples = sampleUniform(segmentNear, segmentFar, sampleCount, device=None)
-    cameraLoc = sphereToRect(phis, thetas, cameraD)
 
-    hitMask = (segmentFar - segmentNear) > 1e-10
+    first = rays[0]
+    # all z values are positive
+    for i in range(4):
+        for j in range(4):
+            assert first[i, j, 2] > 0
 
-    scaledRays = scaleRays(rays[:, hitMask], samples[hitMask], cameraLoc)
-    assert scaledRays.shape == (batch, rays[:, hitMask].shape[1], sampleCount, 3)
+    # y axis is positive for top half of image, negative for bottom half
+    for i in range(2):
+        for j in range(4):
+            assert first[i, j, 1] > 0
 
-    # check that all the points on each ray are collinear
-    for j in range(scaledRays.shape[1]):
-        ray0 = scaledRays[0, j, 0] - cameraLoc[0]
-        ray0_unit = ray0 / torch.norm(ray0)
+    for i in range(2):
+        for j in range(4):
+            assert first[i+2, j, 1] < 0
 
-        for i in range(sampleCount):
-            ray_i = scaledRays[0, j, i] - cameraLoc[0]
-            ray_i_unit = ray_i / torch.norm(ray_i)
-            assert torch.allclose(ray0_unit, ray_i_unit)
+    # x axis is positive for left half, negative for right half
+    for i in range(4):
+        for j in range(2):
+            assert first[i, j, 0] > 0
+
+    for i in range(4):
+        for j in range(2):
+            assert first[i, j+2, 0] < 0
+
+def test_enumerateRays_signs_theta_nonzero():
+    px = 4
+
+    phis = torch.tensor([0.0])
+    thetas = torch.tensor([np.pi / 6])
+    thetaSpace = torch.tensor([
+        [-np.pi/6, 0, np.pi/6],
+        [-np.pi/6, 0, np.pi/6],
+        [-np.pi/6, 0, np.pi/6],
+        ]) + np.pi
+    phiSpace = torch.tensor([
+        [np.pi/6, np.pi/6, np.pi/6],
+        [0.0, 0.0, 0.0],
+        [-np.pi/6, -np.pi/6, -np.pi/6]
+        ])
+    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+
+    first = rays[0]
+    # # all z values are positive
+    # for i in range(4):
+    #     for j in range(4):
+    #         assert first[i, j, 2] > 0
+    print(first)
+    print(first[1, 2])
+
+    # right center pixel should be negative z axis
+    assert torch.allclose(first[1, 2], torch.tensor([0.0, 0.0, -1.0]), atol=1e-6)
+
+def test_enumerateRays_signs_phi_nonzero():
+    phis = torch.tensor([np.pi/6])
+    thetas = torch.tensor([0.0])
+    thetaSpace = torch.tensor([
+        [-np.pi/6, 0, np.pi/6],
+        [-np.pi/6, 0, np.pi/6],
+        [-np.pi/6, 0, np.pi/6],
+        ]) + np.pi
+    phiSpace = torch.tensor([
+        [np.pi/6, np.pi/6, np.pi/6],
+        [0.0, 0.0, 0.0],
+        [-np.pi/6, -np.pi/6, -np.pi/6]
+        ])
+    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+
+    first = rays[0]
+    # all z values are negative
+    for i in range(3):
+        for j in range(3):
+            assert first[i, j, 2] < 0
+
+    # the top center pixel's ray should be the negative z axis
+    assert torch.allclose(first[0, 1], torch.tensor([0.0, 0.0, -1.0]), atol=1e-7)

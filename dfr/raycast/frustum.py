@@ -40,7 +40,8 @@ def buildFrustum(fov, px, device):
     return (cameraD, phiSpace, thetaSpace, segmentNear, segmentFar)
 
 def enumerateRays(phis, thetas, phiSpace, thetaSpace):
-    phiBatch = phis.view(-1, 1, 1) + phiSpace.repeat(phis.shape[0], 1, 1)
-    thetaBatch = thetas.view(-1, 1, 1) + thetaSpace.repeat(thetas.shape[0], 1, 1)
+    # subtract because phiSpace and thetaSpace are mirrored over the camera plane
+    phiBatch = phiSpace.repeat(phis.shape[0], 1, 1) - phis.view(-1, 1, 1)
+    thetaBatch = thetaSpace.repeat(thetas.shape[0], 1, 1) - thetas.view(-1, 1, 1)
 
     return sphereToRect(thetaBatch, phiBatch, 1.0)

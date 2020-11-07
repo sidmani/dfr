@@ -45,7 +45,7 @@ class SDFNetwork(nn.Module):
             for i in range(8):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
 
-        self.activation = nn.ReLU
+        self.activation = nn.ReLU()
 
     def forward(self, x):
         r = x
