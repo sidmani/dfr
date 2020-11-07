@@ -19,10 +19,10 @@ def sampleStratified(near, far, count, device):
     return ((far - near) * (divs + rand) * (n - 1) / n + near).permute(1, 2, 0)
 
 def scaleRays(rays, samples, cameraLoc):
-    # [batch, selected #, sample count, 3]
-    selectedRays = rays.unsqueeze(2).repeat(1, 1, samples.shape[1], 1)
-    # [1, selected #, sample count, 1]
-    selectedSamples = samples.view(1, -1, samples.shape[1], 1)
+    # output has shape [batch, selected #, sample count, 3]
+    selectedRays = rays.unsqueeze(2).repeat(1, 1, samples.shape[2], 1)
+    # [batch, selected #, sample count, 1]
+    selectedSamples = samples.unsqueeze(3)
 
     # sum camera loc with scaled rays to compute sample points
     return cameraLoc.view(-1, 1, 1, 3) + selectedRays * selectedSamples

@@ -37,36 +37,46 @@ def test_sampleStratified():
                 x = samples[j, k, i]
                 assert float(i * 0.8) < x < float((i + 1) * 0.8)
 
-def test_scaleRays():
-    batch = 7
-    sampleCount = 5
+def test_scaleRays_simple():
+    rays = torch.ones(2, 5, 3)
+    samples = torch.linspace(0.0, 1.0, 7).repeat(2, 5, 1)
+    assert samples.shape == (2, 5, 7)
 
-    (cameraD,
-     phiSpace,
-     thetaSpace,
-     segmentNear,
-     segmentFar) = buildFrustum(2 * np.pi / 3, 4, device=None)
+    scaledRays = scaleRays(rays, samples, torch.ones(2, 3))
+    obj1 = scaledRays[0]
+    ray1 = obj1[0]
+    assert torch.equal(ray1, torch.linspace(0.0, 1.0, 7).repeat(3, 1).transpose(0, 1) + 1.0)
 
-    phis = torch.rand(batch)
-    thetas = torch.rand(batch)
+# def test_scaleRays():
+#     batch = 7
+#     sampleCount = 5
 
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
-    samples = sampleUniform(segmentNear, segmentFar, sampleCount, device=None)
-    cameraLoc = sphereToRect(phis, thetas, cameraD)
+#     (cameraD,
+#      phiSpace,
+#      thetaSpace,
+#      segmentNear,
+#      segmentFar) = buildFrustum(2 * np.pi / 3, 4, device=None)
 
-    hitMask = (segmentFar - segmentNear) > 1e-10
+#     phis = torch.rand(batch)
+#     thetas = torch.rand(batch)
 
-    scaledRays = scaleRays(rays[:, hitMask], samples[hitMask], cameraLoc)
-    assert scaledRays.shape == (batch, rays[:, hitMask].shape[1], sampleCount, 3)
+#     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+#     samples = sampleUniform(segmentNear, segmentFar, sampleCount, device=None)
+#     cameraLoc = sphereToRect(phis, thetas, cameraD)
 
-    # check that all the points on each ray are collinear
-    for j in range(scaledRays.shape[1]):
-        # have to subtract cameraLoc because scaling is around origin
-        ray0 = scaledRays[0, j, 0] - cameraLoc[0]
-        ray0_unit = ray0 / torch.norm(ray0)
+#     hitMask = (segmentFar - segmentNear) > 1e-10
 
-        for i in range(sampleCount):
-            ray_i = scaledRays[0, j, i] - cameraLoc[0]
-            ray_i_unit = ray_i / torch.norm(ray_i)
-            assert torch.allclose(ray0_unit, ray_i_unit)
+#     scaledRays = scaleRays(rays[:, hitMask], samples[hitMask], cameraLoc)
+#     assert scaledRays.shape == (batch, rays[:, hitMask].shape[1], sampleCount, 3)
+
+#     # check that all the points on each ray are collinear
+#     for j in range(scaledRays.shape[1]):
+#         # have to subtract cameraLoc because scaling is around origin
+#         ray0 = scaledRays[0, j, 0] - cameraLoc[0]
+#         ray0_unit = ray0 / torch.norm(ray0)
+
+#         for i in range(sampleCount):
+#             ray_i = scaledRays[0, j, i] - cameraLoc[0]
+#             ray_i_unit = ray_i / torch.norm(ray_i)
+#             assert torch.allclose(ray0_unit, ray_i_unit)
 
