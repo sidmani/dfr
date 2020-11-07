@@ -7,17 +7,16 @@ def test_sphereToRect_zAxis():
     assert torch.allclose(v, torch.tensor([0.0, 0.0, 1.0]), atol=5e-7)
 
 def test_sphereToRect_yAxis():
-    v = sphereToRect(torch.zeros(1), torch.tensor([np.pi / 2.0]), 1.0)
+    v = sphereToRect(torch.tensor([np.pi / 2.0]), torch.zeros(1), 1.0)
     assert torch.allclose(v, torch.tensor([0.0, 1.0, 0.0]), atol=5e-7)
 
 def test_sphereToRect_xAxis():
-    v = sphereToRect(torch.tensor([np.pi / 2.0]), torch.zeros(1), 1.0)
+    v = sphereToRect(torch.zeros(1), torch.tensor([np.pi / 2.0]), 1.0)
     assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
 
 def test_sphereToRect_xAxis():
-    v = sphereToRect(torch.tensor([np.pi / 2.0]), torch.zeros(1), 1.0)
+    v = sphereToRect(torch.zeros(1), torch.tensor([np.pi / 2.0]), 1.0)
     assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
-
 
 def test_buildFrustum_cameraD():
     cameraD = buildFrustum(2*np.pi/3, 4, device=None).cameraD

@@ -46,37 +46,3 @@ def test_scaleRays_simple():
     obj1 = scaledRays[0]
     ray1 = obj1[0]
     assert torch.equal(ray1, torch.linspace(0.0, 1.0, 7).repeat(3, 1).transpose(0, 1) + 1.0)
-
-# def test_scaleRays():
-#     batch = 7
-#     sampleCount = 5
-
-#     (cameraD,
-#      phiSpace,
-#      thetaSpace,
-#      segmentNear,
-#      segmentFar) = buildFrustum(2 * np.pi / 3, 4, device=None)
-
-#     phis = torch.rand(batch)
-#     thetas = torch.rand(batch)
-
-#     rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
-#     samples = sampleUniform(segmentNear, segmentFar, sampleCount, device=None)
-#     cameraLoc = sphereToRect(phis, thetas, cameraD)
-
-#     hitMask = (segmentFar - segmentNear) > 1e-10
-
-#     scaledRays = scaleRays(rays[:, hitMask], samples[hitMask], cameraLoc)
-#     assert scaledRays.shape == (batch, rays[:, hitMask].shape[1], sampleCount, 3)
-
-#     # check that all the points on each ray are collinear
-#     for j in range(scaledRays.shape[1]):
-#         # have to subtract cameraLoc because scaling is around origin
-#         ray0 = scaledRays[0, j, 0] - cameraLoc[0]
-#         ray0_unit = ray0 / torch.norm(ray0)
-
-#         for i in range(sampleCount):
-#             ray_i = scaledRays[0, j, i] - cameraLoc[0]
-#             ray_i_unit = ray_i / torch.norm(ray_i)
-#             assert torch.allclose(ray0_unit, ray_i_unit)
-

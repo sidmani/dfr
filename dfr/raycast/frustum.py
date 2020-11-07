@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-def sphereToRect(theta, phi, r):
+def sphereToRect(phi, theta, r):
     cos_phi = torch.cos(phi)
     return r * torch.stack([
         cos_phi * torch.sin(theta),
@@ -44,7 +44,7 @@ def enumerateRays(phis, thetas, phiSpace, thetaSpace):
     phiBatch = phiSpace.repeat(phis.shape[0], 1, 1) - phis.view(-1, 1, 1)
     thetaBatch = thetaSpace.repeat(thetas.shape[0], 1, 1) - thetas.view(-1, 1, 1)
 
-    return sphereToRect(thetaBatch, phiBatch, 1.0)
+    return sphereToRect(phiBatch, thetaBatch, 1.0)
 
 class Frustum:
     def __init__(self, cameraD, phiSpace, thetaSpace, near, far):
