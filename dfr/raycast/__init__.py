@@ -8,6 +8,7 @@ def raycast(sdf, latents, phis, thetas, frustum, sampleCount, device):
     rays = enumerateRays(phis, thetas, frustum.phiSpace, frustum.thetaSpace)
 
     # uniformly sample distances from the camera in the unit sphere
+    # unsqueeze because we're using the same sample values for all objects
     samples = sampleUniform(
             frustum.near,
             frustum.far,
