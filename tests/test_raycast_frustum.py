@@ -20,37 +20,37 @@ def test_sphereToRect_xAxis():
 
 
 def test_buildFrustum_cameraD():
-    cameraD = buildFrustum(2*np.pi/3, 4, device=None)[0]
+    cameraD = buildFrustum(2*np.pi/3, 4, device=None).cameraD
     assert cameraD > 1.0
     assert type(cameraD) == np.float64
 
 def test_buildFrustum_angleSpace():
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4, device=None)
-    assert phiSpace.shape == (4, 4)
-    assert thetaSpace.shape == (4, 4)
+    f = buildFrustum(np.pi/3, 4, device=None)
+    assert f.phiSpace.shape == (4, 4)
+    assert f.thetaSpace.shape == (4, 4)
 
     # check that these are repeated in the correct directions
-    assert torch.equal(phiSpace[:, 0], phiSpace[:, 3])
-    assert torch.equal(thetaSpace[0, :], thetaSpace[3, :])
+    assert torch.equal(f.phiSpace[:, 0], f.phiSpace[:, 3])
+    assert torch.equal(f.thetaSpace[0, :], f.thetaSpace[3, :])
 
 def test_buildFrustum_quadrants():
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(np.pi/3, 4, device=None)
+    f = buildFrustum(np.pi/3, 4, device=None)
 
     # check quadrants are oriented correctly
-    assert 0 < thetaSpace[3, 3] < np.pi
-    assert np.pi < thetaSpace[0, 0] < np.pi * 2
+    assert 0 < f.thetaSpace[3, 3] < np.pi
+    assert np.pi < f.thetaSpace[0, 0] < np.pi * 2
 
-    assert 0 < phiSpace[0, 0] < np.pi / 2
-    assert -np.pi / 2 < phiSpace[3, 3] < 0
+    assert 0 < f.phiSpace[0, 0] < np.pi / 2
+    assert -np.pi / 2 < f.phiSpace[3, 3] < 0
 
 def test_buildFrustum_segment():
-    _, _, _, near, far = buildFrustum(np.pi/2, 12, device=None)
+    f = buildFrustum(np.pi/2, 12, device=None)
     for i in range(12):
         for j in range(12):
-            assert near[i, j] <= far[i, j]
-            assert near[i, j] > 0.0
+            assert f.near[i, j] <= f.far[i, j]
+            assert f.near[i, j] > 0.0
             # check that segment is shorter than diameter of sphere, with float err
-            assert far[i, j] - near[i, j] < 2.0 + 10e-10
+            assert f.far[i, j] - f.near[i, j] < 2.0 + 10e-10
 
 def test_enumerateRays_shape():
     batch_size = 5
@@ -69,8 +69,8 @@ def test_enumerateRays_zMatch():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    f = buildFrustum(2*np.pi/3, px, device=None)
+    rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
 
     first = rays[0]
     assert first.shape == (px, px, 3)
@@ -93,8 +93,8 @@ def test_enumerateRays_signs():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    f = buildFrustum(2*np.pi/3, px, device=None)
+    rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
 
     first = rays[0]
     # all z values are negative
@@ -125,8 +125,8 @@ def test_enumerateRays_signs_theta_pi():
 
     phis = torch.tensor([0.0])
     thetas = torch.tensor([np.pi])
-    _, phiSpace, thetaSpace, _, _ = buildFrustum(2*np.pi/3, px, device=None)
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    f = buildFrustum(2*np.pi/3, px, device=None)
+    rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
 
     first = rays[0]
     # all z values are positive

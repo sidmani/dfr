@@ -34,10 +34,10 @@ def buildFrustum(fov, px, device):
     delta = torch.sqrt(radicand)
 
     # quadratic formula
-    segmentNear = center - delta
-    segmentFar = center + delta
+    near = center - delta
+    far = center + delta
 
-    return (cameraD, phiSpace, thetaSpace, segmentNear, segmentFar)
+    return Frustum(cameraD, phiSpace, thetaSpace, near, far)
 
 def enumerateRays(phis, thetas, phiSpace, thetaSpace):
     # subtract because phiSpace and thetaSpace are mirrored over the camera plane
@@ -45,3 +45,12 @@ def enumerateRays(phis, thetas, phiSpace, thetaSpace):
     thetaBatch = thetaSpace.repeat(thetas.shape[0], 1, 1) - thetas.view(-1, 1, 1)
 
     return sphereToRect(thetaBatch, phiBatch, 1.0)
+
+class Frustum:
+    def __init__(self, cameraD, phiSpace, thetaSpace, near, far):
+        self.cameraD = cameraD
+        self.phiSpace = phiSpace
+        self.thetaSpace = thetaSpace
+        self.near = near
+        self.far = far
+        self.mask = (far - near) > 1e-10
