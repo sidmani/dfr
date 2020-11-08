@@ -21,11 +21,12 @@ class ImageDataset(Dataset):
         self.dataset = []
 
         # load images into RAM
+        print('Loading dataset into RAM...')
+        imgsPerFolder = 24
         for folder in tqdm(list(dataPath.glob('*'))):
-            images = list(folder.glob('rendering/*.png'))
             # pick a random view (1 per object)
-            idx = np.random.randint(0, len(images))
-            img = Image.open(images[idx])
+            idx = np.random.randint(0, imgsPerFolder)
+            img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
             # drop the channels dimension
             tens = 1.0 - pipeline(img).squeeze(0)
             # invert and mask the salient portion
@@ -39,7 +40,7 @@ class ImageDataset(Dataset):
     def __getitem__(self, idx):
         return self.dataset[idx]
 
-class DataModule(LightningDataModule):
+class DFRDataModule(LightningDataModule):
     def __init__(self,
                  batchSize,
                  dataPath,

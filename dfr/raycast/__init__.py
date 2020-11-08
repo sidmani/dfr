@@ -26,6 +26,6 @@ def raycast(sdf, latents, phis, thetas, frustum, sampleCount, device):
     values = fastRayIntegral(latents, targets, sdf, 10e-10)
 
     # shape [px, px, channels]
-    result = torch.ones(rays.shape[:3])
+    result = torch.ones(rays.shape[:3], device=device)
     result[:, frustum.mask] = shade(values)
     return result

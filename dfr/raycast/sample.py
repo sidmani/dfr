@@ -15,7 +15,7 @@ def sampleStratified(near, far, count, device):
     n = float(count)
     divs = torch.linspace(0.0, 1.0, count, device=device).expand(*near.shape, count).permute(2, 0, 1)
     # TODO: double-check ranges
-    rand = torch.rand(count, *near.shape) / (n - 1)
+    rand = torch.rand(count, *near.shape, device=device) / (n - 1)
     return ((far - near) * (divs + rand) * (n - 1) / n + near).permute(1, 2, 0)
 
 def scaleRays(rays, samples, cameraLoc):

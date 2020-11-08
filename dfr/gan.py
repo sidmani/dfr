@@ -15,18 +15,18 @@ class GAN(pl.LightningModule):
                  gradPenaltyWeight=10.0,
                  # discriminator iterations for every generator iteration
                  discIter=3,
-                 px=64):
+                 imageSize=64):
         super().__init__()
         self.save_hyperparameters()
 
         self.gen = Generator(weightNorm=weightNorm,
                              fov=2.0 * np.pi / 3.0,
-                             px=px,
+                             px=imageSize,
                              sampleCount=sampleCount,
                              latentSize=latentSize)
         self.dis = Discriminator()
 
-    def sample_generator(self, batchSize):
+    def sampleGenerator(self, batchSize):
         # elevation angle: phi = pi/6
         phis = torch.ones(batchSize, device=self.device) * (np.pi / 6.0)
         # azimuthal angle: 0 <= theta < 2pi
@@ -40,10 +40,10 @@ class GAN(pl.LightningModule):
 
         return self.gen(z, phis, thetas)
 
-    def gradient_penalty(self, real, fake):
-        epsilon = torch.rand(real.shape[0])
+    def gradientPenalty(self, real, fake):
+        epsilon = torch.rand(real.shape[0], 1, 1, device=self.device)
         interp = epsilon * real + (1.0 - epsilon) * fake
-        outputs = self.discriminator(interp)
+        outputs = self.dis(interp)
         grad = torch.autograd.grad(outputs=outputs,
                                    inputs=interp,
                                    grad_outputs=torch.ones(outputs.size(), device=self.device),
@@ -53,14 +53,14 @@ class GAN(pl.LightningModule):
 
         return ((grad.norm(dim=1) - 1.0) ** 2.0).mean()
 
-    def training_step(self, batch, batchIdx):
+    def training_step(self, batch, batch_idx, optimizer_idx):
         batchSize = batch.shape[0]
         genOpt, disOpt = self.optimizers()
 
         # update the discriminator more frequently than the generator
         for i in range(self.hparams.discIter):
             generated = self.sampleGenerator(batchSize)
-            penalty = self.gradient_penalty(batch, generated)
+            penalty = self.gradientPenalty(batch, generated)
             disLoss = (self.dis(generated).mean()
                     - self.dis(batch).mean()
                     + penalty * self.hparams.gradPenaltyWeight)
@@ -79,7 +79,7 @@ class GAN(pl.LightningModule):
 
     def configure_optimizers(self):
         # TODO: custom beta value
-        genOpt = Adam(self.gen.parameter(), self.hparams.learningRate)
+        genOpt = Adam(self.gen.parameters(), self.hparams.learningRate)
         disOpt = Adam(self.dis.parameters(), self.hparams.learningRate)
 
         # TODO: learning rate

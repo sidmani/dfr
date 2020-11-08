@@ -2,16 +2,23 @@ from argparse import ArgumentParser
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pathlib import Path
-from .dataset import DataModule, ImageDataset
+from .dataset import DFRDataModule
+from .gan import GAN
 
 def main(args):
+    imageSize = 64
     logger = TensorBoardLogger(name='lightning_logs', save_dir=Path.cwd())
-    dataset = ImageDataset(Path(args.data), imageSize=64)
+    dataset = DFRDataModule(int(args.batch),
+                            Path(args.data),
+                            imageSize=imageSize,
+                            workers=1)
+    model = GAN(imageSize=imageSize)
     trainer = Trainer(gpus=args.gpu,
                       logger=logger,
                       automatic_optimization=False,
                       precision=(32 if args.full_prec else 16),
                       max_epochs=int(args.max_epochs))
+    trainer.fit(model, dataset)
 
 
 if __name__ == "__main__":
