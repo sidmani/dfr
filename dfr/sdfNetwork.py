@@ -22,7 +22,7 @@ def geometric_init(layers, r=0.98, dropout=0.0):
     nn.init.constant_(layers[-1].bias, -r)
 
 class SDFNetwork(nn.Module):
-    def __init__(self, weightNorm=False, latentSize=256, width=512):
+    def __init__(self, weightNorm, latentSize, width=512):
         super().__init__()
         assert width > latentSize + 3
 
@@ -45,6 +45,7 @@ class SDFNetwork(nn.Module):
             for i in range(8):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
 
+        # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
     def forward(self, x):

@@ -9,11 +9,11 @@ from PIL import Image
 from tqdm import tqdm
 
 class ImageDataset(Dataset):
-    def __init__(self, dataPath):
+    def __init__(self, dataPath, px):
         super().__init__()
 
         pipeline = transforms.Compose([
-            transforms.Resize((64, 64)),
+            transforms.Resize((px, px)),
             transforms.Grayscale(),
             transforms.ToTensor(),
         ])
@@ -28,7 +28,7 @@ class ImageDataset(Dataset):
             img = Image.open(images[idx])
             # drop the channels dimension
             tens = pipeline(img).squeeze(0)
-            self.dataset.append(pipeline(img))
+            self.dataset.append(tens)
 
     def __len__(self):
         return len(self.dataset)
@@ -40,11 +40,12 @@ class DataModule(LightningDataModule):
     def __init__(self,
                  batchSize,
                  dataPath,
+                 imageSize,
                  workers=multiprocessing.cpu_count() - 1):
         super().__init__()
         self.workers = workers
         self.batchSize = batchSize
-        self.dataset = ImageDataset(dataPath)
+        self.dataset = ImageDataset(dataPath, imageSize)
 
     def train_dataloader(self):
         return DataLoader(self.dataset,

@@ -1,11 +1,18 @@
 import torch
 from dfr.generator import Generator
 
-# def test_generator_forward():
-#     g = Generator(px=4, sampleCount=3)
-#     x = torch.rand(2, 256)
-#     phis = torch.rand(2)
-#     thetas = torch.rand(2)
-#     g(x, phis, thetas, sampleUniform)
+def test_generator():
+    g = Generator(
+            weightNorm=False,
+            fov=2.0,
+            px=24,
+            sampleCount=16,
+            latentSize=16,
+            )
 
-#     assert False
+    latents = torch.rand(5, 16)
+    phis = torch.rand(5, 1)
+    thetas = torch.rand(5, 1)
+
+    out = g(latents, phis, thetas)
+    assert out.shape == (5, 24, 24)

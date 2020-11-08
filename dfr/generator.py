@@ -4,10 +4,10 @@ from .raycast.frustum import buildFrustum
 from .raycast import raycast
 
 class Generator(pl.LightningModule):
-    def __init__(self, weightNorm, fov, px, sampleCount):
+    def __init__(self, weightNorm, fov, px, sampleCount, latentSize):
         super().__init__()
         self.sampleCount = sampleCount
-        self.sdf = SDFNetwork(weightNorm=weightNorm)
+        self.sdf = SDFNetwork(weightNorm=weightNorm, latentSize=latentSize)
         # the frustum calculation has spherical symmetry, so can precompute it
         self.frustum = buildFrustum(fov, px, self.device)
 
