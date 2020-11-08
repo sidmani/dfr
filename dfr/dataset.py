@@ -27,7 +27,10 @@ class ImageDataset(Dataset):
             idx = np.random.randint(0, len(images))
             img = Image.open(images[idx])
             # drop the channels dimension
-            tens = pipeline(img).squeeze(0)
+            tens = 1.0 - pipeline(img).squeeze(0)
+            # invert and mask the salient portion
+            mask = tens < 1.0
+            tens[mask] = 0.0
             self.dataset.append(tens)
 
     def __len__(self):
