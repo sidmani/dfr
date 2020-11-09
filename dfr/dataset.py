@@ -5,7 +5,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, get_worker_info
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
-from PIL import Image
+from PIL import Image, ImageFilter
 from tqdm import tqdm
 
 class ImageDataset(Dataset):
@@ -28,6 +28,7 @@ class ImageDataset(Dataset):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
+            blurred = img.filter(ImageFilter.GaussianBlur(2.0))
             # drop the channels dimension
             tens = 1.0 - pipeline(img).squeeze(0)
             # invert and mask the salient portion

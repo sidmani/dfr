@@ -26,20 +26,6 @@ class GAN(pl.LightningModule):
                              latentSize=latentSize)
         self.dis = Discriminator()
 
-    def sampleGenerator(self, batchSize):
-        # elevation angle: phi = pi/6
-        phis = torch.ones(batchSize, device=self.device) * (np.pi / 6.0)
-        # azimuthal angle: 0 <= theta < 2pi
-        thetas = torch.rand(batchSize, device=self.device) * (2.0 * np.pi)
-        # latents with mean 0, variance 0.33
-        z = torch.normal(
-                mean=0.0,
-                std=np.sqrt(0.33),
-                size=(batchSize, self.hparams.latentSize),
-                device=self.device)
-
-        return self.gen(z, phis, thetas)
-
     def gradientPenalty(self, real, fake):
         epsilon = torch.rand(real.shape[0], 1, 1, device=self.device)
         interp = epsilon * real + (1.0 - epsilon) * fake
@@ -57,7 +43,7 @@ class GAN(pl.LightningModule):
         batchSize = batch.shape[0]
         genOpt, disOpt = self.optimizers()
 
-        generated = self.sampleGenerator(batchSize)
+        generated = self.gen.sample(batchSize)
         penalty = self.gradientPenalty(batch, generated)
         genLoss = self.dis(generated).mean()
         disLoss = (genLoss
@@ -73,15 +59,23 @@ class GAN(pl.LightningModule):
             # otherwise the generator weights change and the graph becomes outdated
             self.manual_backward(disLoss, disOpt)
             genOpt.step()
-            genOpt.zero_grad()
+            genOpt.zero_grad(set_to_none=True)
         else:
             self.manual_backward(disLoss, disOpt)
 
         disOpt.step()
-        disOpt.zero_grad()
+        disOpt.zero_grad(set_to_none=True)
 
+        # logging
         self.log('discriminator_loss', disLoss)
         self.log('generator_loss', genLoss)
+
+        if batch_idx == 0:
+            genImg = generated[torch.randint(generated.shape[0], (1,))]
+            self.logger.experiment.add_image('generated_image',
+                                      genImg,
+                                      global_step=self.current_epoch,
+                                      dataformats='CHW')
 
     def configure_optimizers(self):
         # TODO: custom beta value
