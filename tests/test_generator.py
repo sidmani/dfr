@@ -8,6 +8,7 @@ def test_generator():
             px=24,
             sampleCount=16,
             latentSize=16,
+            device=None
             )
 
     latents = torch.rand(5, 16)
@@ -24,6 +25,7 @@ def test_generator_raycast():
             px=8,
             sampleCount=16,
             latentSize=16,
+            device=None
             )
 
     phis = torch.tensor([0.0])
@@ -50,6 +52,7 @@ def test_generator_sample():
             px=8,
             sampleCount=16,
             latentSize=16,
+            device=None
             )
 
     obj1 = g.sample(2)[0]

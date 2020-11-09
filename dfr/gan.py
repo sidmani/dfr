@@ -23,7 +23,8 @@ class GAN(pl.LightningModule):
                              fov=2.0 * np.pi / 3.0,
                              px=imageSize,
                              sampleCount=sampleCount,
-                             latentSize=latentSize)
+                             latentSize=latentSize,
+                             device=self.device)
         self.dis = Discriminator()
 
     def gradientPenalty(self, real, fake):

@@ -1,18 +1,19 @@
 import torch
+import torch.nn as nn
 import numpy as np
-import pytorch_lightning as pl
 from .sdfNetwork import SDFNetwork
 from .raycast.frustum import buildFrustum
 from .raycast import raycast
 
-class Generator(pl.LightningModule):
-    def __init__(self, weightNorm, fov, px, sampleCount, latentSize):
+class Generator(nn.Module):
+    def __init__(self, weightNorm, fov, px, sampleCount, latentSize, device):
         super().__init__()
         self.sampleCount = sampleCount
         self.latentSize = latentSize
         self.sdf = SDFNetwork(weightNorm=weightNorm, latentSize=latentSize)
         # the frustum calculation has spherical symmetry, so can precompute it
-        self.frustum = buildFrustum(fov, px, self.device)
+        self.frustum = buildFrustum(fov, px, device)
+        self.device = device
 
     def forward(self, latents, phis, thetas):
         return raycast(
