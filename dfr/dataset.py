@@ -49,11 +49,12 @@ class DFRDataModule(LightningDataModule):
                  batchSize,
                  dataPath,
                  imageSize,
+                 firstN=None,
                  workers=multiprocessing.cpu_count() - 1):
         super().__init__()
         self.workers = workers
         self.batchSize = batchSize
-        self.dataset = ImageDataset(dataPath, imageSize)
+        self.dataset = ImageDataset(dataPath, imageSize, firstN=firstN)
 
     def train_dataloader(self):
         return DataLoader(self.dataset,

@@ -11,6 +11,7 @@ def main(args):
     dataset = DFRDataModule(int(args.batch),
                             Path(args.data),
                             imageSize=imageSize,
+                            firstN=int(args.dlim) if args.dlim else None,
                             workers=1)
     model = GAN(imageSize=imageSize)
     trainer = Trainer(gpus=args.gpu,
@@ -44,6 +45,10 @@ if __name__ == "__main__":
         '--epochs',
         dest='max_epochs',
         default=3000,
+    )
+    parser.add_argument(
+        '--dlim',
+        dest='dlim',
     )
     parser.add_argument(
         '--batch',
