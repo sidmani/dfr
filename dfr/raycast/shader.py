@@ -4,15 +4,8 @@ import torch
 def searchRays(latents, targets, sdf, epsilon):
     # targets has shape [batch, rays, samples, 3]
     # latents has shape [batch, latentSize]
-    # flatten into 2d tensor
-    flattenedPoints = targets.view(-1, 3)
-    latentsTiled = torch.repeat_interleave(latents, targets.shape[1] * targets.shape[2], dim=0)
-
-    # concat latents
-    batch = torch.cat([flattenedPoints, latentsTiled], dim=1)
-
     # evaluate SDF
-    values = sdf(batch).view(*targets.shape[:3])
+    values = sdf(targets.view(-1, 3), latents).view(*targets.shape[:3])
 
     # find the minimum sampled value over each ray
     # epsilon is the minimum depth that is considered an intersection
@@ -27,13 +20,9 @@ def fastRayIntegral(latents, targets, sdf, epsilon):
     with torch.no_grad():
         critPoints = searchRays(latents, targets, sdf, epsilon)
 
-    flattenedPoints = critPoints.view(-1, 3)
-    latentsTiled = torch.repeat_interleave(latents, targets.shape[1], dim=0)
-    batch = torch.cat([flattenedPoints, latentsTiled], dim=1)
-
     # now, with gradient, sample the useful points
     # TODO: compute normals here
-    return sdf(batch).view(*targets.shape[:2])
+    return sdf(critPoints.view(-1, 3), latents).view(*targets.shape[:2])
 
 def shade(values, k=10.0):
     return 1.0 / (1 + torch.exp(-k * values))

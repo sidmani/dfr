@@ -3,8 +3,7 @@ import torch
 from dfr.raycast.shader import searchRays
 
 # signed-distance function for the unit sphere
-def MockSDF(data):
-    pts = data[:, :3]
+def MockSDF(pts, latents):
     return torch.norm(pts, dim=1) - 1.0
 
 def test_searchRays_1_ray():

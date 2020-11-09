@@ -4,8 +4,7 @@ from dfr.raycast import raycast
 from dfr.raycast.frustum import buildFrustum
 
 # signed-distance function for the half-unit sphere
-def MockSDF(data):
-    pts = data[:, :3]
+def MockSDF(pts, latents):
     return torch.norm(pts, dim=1) - 0.5
 
 def test_raycast_sphere():

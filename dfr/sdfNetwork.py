@@ -27,7 +27,7 @@ class SDFNetwork(nn.Module):
         assert width > latentSize + 3
 
         self.layers = nn.ModuleList([
-            nn.Linear(latentSize + 3, width),
+            nn.Linear(latentSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, width - (latentSize + 3)),
@@ -48,15 +48,24 @@ class SDFNetwork(nn.Module):
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    def forward(self, x):
-        r = x
-        for i in range(7):
-            if i == 4:
-                # skip connection
-                # per SAL supplementary: divide by sqrt(2) to normalize
-                r = torch.cat([x, r], dim=1) / np.sqrt(2)
+    def forward(self, pts, latents):
+        # first 4 layers only deal with latents
+        r = latents
+        for i in range(4):
             r = self.activation(self.layers[i](r))
 
-        # DeepSDF uses tanh, but SALD says it's optional
-        # empirically doesn't make much difference
+        # skip connection
+        # per SAL supplementary: divide by sqrt(2) to normalize
+        sampleCount = pts.shape[0] // latents.shape[0]
+        processed = torch.repeat_interleave(r, sampleCount, dim=0)
+
+        # may be a way to create this in parent
+        expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
+
+        # TODO: layer idx 4 can be split into separate matrices and cached
+        # expected gain ~7%
+        r = torch.cat([pts, expandedLatents, processed], dim=1) / np.sqrt(2)
+        for i in range(3):
+            r = self.activation(self.layers[i + 4](r))
+
         return torch.tanh(self.layers[7](r))

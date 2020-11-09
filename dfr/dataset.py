@@ -19,11 +19,12 @@ class ImageDataset(Dataset):
         ])
 
         self.dataset = []
+        objects = list(dataPath.glob('*'))
 
         # load images into RAM
-        print('Loading dataset into RAM...')
+        print(f"Loading dataset ({len(objects)} objects) into RAM...")
         imgsPerFolder = 24
-        for folder in tqdm(list(dataPath.glob('*'))):
+        for folder in tqdm(objects):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
