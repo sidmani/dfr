@@ -10,7 +10,7 @@ class Generator(nn.Module):
         super().__init__()
         self.sampleCount = sampleCount
         self.latentSize = latentSize
-        self.sdf = SDFNetwork(weightNorm=weightNorm, latentSize=latentSize)
+        self.sdf = SDFNetwork(weightNorm=weightNorm, latentSize=latentSize).to(device)
         # the frustum calculation has spherical symmetry, so can precompute it
         self.frustum = buildFrustum(fov, px, device)
         self.device = device
