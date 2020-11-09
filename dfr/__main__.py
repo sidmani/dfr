@@ -14,7 +14,7 @@ def main(args):
                             firstN=int(args.dlim) if args.dlim else None,
                             workers=1)
     model = GAN(imageSize=imageSize)
-    trainer = Trainer(gpus=args.gpu,
+    trainer = Trainer(gpus=int(args.gpu),
                       logger=logger,
                       automatic_optimization=False,
                       precision=(32 if args.full_prec else 16),
