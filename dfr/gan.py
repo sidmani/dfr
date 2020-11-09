@@ -57,22 +57,28 @@ class GAN(pl.LightningModule):
         batchSize = batch.shape[0]
         genOpt, disOpt = self.optimizers()
 
-        # update the discriminator more frequently than the generator
-        for i in range(self.hparams.discIter):
-            generated = self.sampleGenerator(batchSize)
-            penalty = self.gradientPenalty(batch, generated)
-            disLoss = (self.dis(generated).mean()
-                    - self.dis(batch).mean()
-                    + penalty * self.hparams.gradPenaltyWeight)
-            self.manual_backward(disLoss, disOpt)
-            disOpt.step()
-            disOpt.zero_grad()
-
         generated = self.sampleGenerator(batchSize)
-        genLoss = -self.dis(generated).mean()
-        self.manual_backward(genLoss, genOpt)
-        genOpt.step()
-        genOpt.zero_grad()
+        penalty = self.gradientPenalty(batch, generated)
+        genLoss = self.dis(generated).mean()
+        disLoss = (genLoss
+                - self.dis(batch).mean()
+                + penalty * self.hparams.gradPenaltyWeight)
+
+        if batch_idx % self.hparams.discIter == 0:
+            # reusing the generated data saves a generator pass each batch
+            # graph: genLoss -> discriminator -> generator
+            self.manual_backward(-genLoss, genOpt, retain_graph=True)
+            # graph: disLoss -> genLoss -> discriminator -> generator
+            # must run this backward pass before stepping the generator
+            # otherwise the generator weights change and the graph becomes outdated
+            self.manual_backward(disLoss, disOpt)
+            genOpt.step()
+            genOpt.zero_grad()
+        else:
+            self.manual_backward(disLoss, disOpt)
+
+        disOpt.step()
+        disOpt.zero_grad()
 
         self.log('discriminator_loss', disLoss)
         self.log('generator_loss', genLoss)
@@ -82,6 +88,6 @@ class GAN(pl.LightningModule):
         genOpt = Adam(self.gen.parameters(), self.hparams.learningRate)
         disOpt = Adam(self.dis.parameters(), self.hparams.learningRate)
 
-        # TODO: learning rate
+        # TODO: learning rate schedule
         # schedGen = LambdaLR(optGen, lambda n: )
         return [genOpt, disOpt], []
