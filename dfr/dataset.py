@@ -9,7 +9,7 @@ from PIL import Image, ImageFilter
 from tqdm import tqdm
 
 class ImageDataset(Dataset):
-    def __init__(self, dataPath, px):
+    def __init__(self, dataPath, px, firstN=None):
         super().__init__()
 
         pipeline = transforms.Compose([
@@ -20,6 +20,8 @@ class ImageDataset(Dataset):
 
         self.dataset = []
         objects = list(dataPath.glob('*'))
+        if firstN is not None and firstN < len(objects):
+            objects = objects[:firstN]
 
         # load images into RAM
         print(f"Loading dataset ({len(objects)} objects) into RAM...")
