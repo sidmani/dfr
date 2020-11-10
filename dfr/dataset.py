@@ -1,11 +1,8 @@
 import torch
 import numpy as np
-import multiprocessing
-from pytorch_lightning import LightningDataModule
-from torch.utils.data import DataLoader, get_worker_info
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
-from PIL import Image, ImageFilter
+from PIL import Image
 from tqdm import tqdm
 
 class ImageDataset(Dataset):
@@ -17,6 +14,8 @@ class ImageDataset(Dataset):
             transforms.Grayscale(),
             transforms.ToTensor(),
         ])
+
+        blur = transforms.GaussianBlur(3.0, sigma=0.4)
 
         self.dataset = []
         objects = list(dataPath.glob('*'))
@@ -30,38 +29,17 @@ class ImageDataset(Dataset):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
-            blurred = img.filter(ImageFilter.GaussianBlur(2.0))
-            # drop the channels dimension
-            tens = 1.0 - pipeline(img).squeeze(0)
-            # invert and mask the salient portion
+            # image to tensor, and invert (1.0 is white)
+            tens = 1.0 - pipeline(img)
+            # mask the salient portion
             mask = tens < 1.0
             tens[mask] = 0.0
-            self.dataset.append(tens)
+            # gaussian blur to mimic soft shading
+            tens = blur(tens)
+            self.dataset.append(tens.squeeze(0))
 
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, idx):
         return self.dataset[idx]
-
-class DFRDataModule(LightningDataModule):
-    def __init__(self,
-                 batchSize,
-                 dataPath,
-                 imageSize,
-                 firstN=None,
-                 workers=multiprocessing.cpu_count() - 1):
-        super().__init__()
-        self.workers = workers
-        self.batchSize = batchSize
-        self.dataset = ImageDataset(dataPath, imageSize, firstN=firstN)
-
-    def train_dataloader(self):
-        return DataLoader(self.dataset,
-                          batch_size=self.batchSize,
-                          pin_memory=True,
-                          shuffle=True,
-                          # need different seeds for different workers
-                          # otherwise may return identical batches
-                          worker_init_fn=lambda i: np.random.seed((torch.initial_seed() + i) % 2 ** 32),
-                          num_workers=self.workers)

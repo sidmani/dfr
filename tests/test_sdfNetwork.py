@@ -1,11 +1,12 @@
 import torch
 from dfr.sdfNetwork import SDFNetwork
+from dfr.train import HParams
 
 def test_sdfNetwork():
-    latentSize = 15
+    latentSize = 256
     batch = 9
     ptsCount = 3
-    sdf = SDFNetwork(weightNorm=False, latentSize=latentSize)
+    sdf = SDFNetwork(HParams(), device=None)
 
     latents = torch.ones(batch // ptsCount, latentSize)
     coords = torch.ones(batch, 3)

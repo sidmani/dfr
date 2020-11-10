@@ -1,36 +1,21 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
-# geometric initialization (SAL section 4)
-def geometric_init(layers, r=0.98, dropout=0.0):
-    # initialize first 7 layers according to thm 1, section 4, SAL
-    # note that the skip connection dimension is handled properly
-    ps = [1.0 - dropout] * (len(layers) - 2) + [1.0]
-    for layer, p in zip(layers[:-1], ps):
-        outDim = float(layer.out_features)
-        nn.init.normal_(layer.weight, 0.0, np.sqrt(2) / np.sqrt(outDim * p))
-        nn.init.constant_(layer.bias, 0.0)
-
-    # initialize 8th layer according to part 2 of same thm
-    outDim = float(layers[-1].in_features)
-
-    # SAL uses 1e-6, IGR uses 1e-5 for SD
-    # SAL also multiplies mean by 2, not sure why
-    # the paper says to use constant weights, but SAL code uses gaussian
-    nn.init.normal_(layers[-1].weight, np.sqrt(np.pi) / np.sqrt(outDim), 1e-5)
-    nn.init.constant_(layers[-1].bias, -r)
+from .raycast.frustum import buildFrustum, enumerateRays, sphereToRect
+from .raycast.shader import fastRayIntegral, shade
+from .raycast.sample import sampleUniform, scaleRays
+from .geometricInit import geometricInit
 
 class SDFNetwork(nn.Module):
-    def __init__(self, weightNorm, latentSize, width=512):
+    def __init__(self, hparams, device, width=512):
         super().__init__()
-        assert width > latentSize + 3
-
+        assert width > hparams.latentSize + 3
+        self.device = device
         self.layers = nn.ModuleList([
-            nn.Linear(latentSize, width),
+            nn.Linear(hparams.latentSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
-            nn.Linear(width, width - (latentSize + 3)),
+            nn.Linear(width, width - (hparams.latentSize + 3)),
             # skip connection from input: latent + x (into 5th layer)
             nn.Linear(width, width),
             nn.Linear(width, width),
@@ -38,10 +23,14 @@ class SDFNetwork(nn.Module):
             nn.Linear(width, 1),
         ])
 
-        # SAL geometric initialization
-        geometric_init(self.layers)
+        # the frustum calculation has spherical symmetry, so can precompute it
+        self.frustum = buildFrustum(hparams.fov, hparams.imageSize, device)
 
-        if weightNorm:
+        # SAL geometric initialization
+        geometricInit(self.layers)
+
+        self.hparams = hparams
+        if hparams.weightNorm:
             for i in range(8):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
 
@@ -69,3 +58,44 @@ class SDFNetwork(nn.Module):
             r = self.activation(self.layers[i + 4](r))
 
         return torch.tanh(self.layers[7](r))
+
+    def raycast(self, latents, phis, thetas):
+        # build a rotated frustum for each input angle
+        rays = enumerateRays(phis, thetas, self.frustum.phiSpace, self.frustum.thetaSpace)
+
+        # uniformly sample distances from the camera in the unit sphere
+        # unsqueeze because we're using the same sample values for all objects
+        samples = sampleUniform(
+                self.frustum.near,
+                self.frustum.far,
+                self.hparams.raySamples,
+                self.device).unsqueeze(0)
+
+        # compute the sampling points for each ray that intersects the unit sphere
+        cameraLoc = sphereToRect(phis, thetas, self.frustum.cameraD)
+        targets = scaleRays(
+                rays[:, self.frustum.mask],
+                samples[:, self.frustum.mask],
+                cameraLoc)
+
+        # compute intersections for rays
+        values = fastRayIntegral(latents, targets, self, 10e-10)
+
+        # shape [px, px, channels]
+        result = torch.ones(rays.shape[:3], device=self.device)
+        result[:, self.frustum.mask] = shade(values)
+        return result
+
+    def sampleGenerator(self, batchSize, phi=np.pi / 6.0):
+        # elevation angle: phi = pi/6
+        phis = torch.ones(batchSize, device=self.device) * phi
+        # azimuthal angle: 0 <= theta < 2pi
+        thetas = torch.rand(batchSize, device=self.device) * (2.0 * np.pi)
+        # latents with mean 0, variance 0.33
+        z = torch.normal(
+                mean=0.0,
+                std=np.sqrt(0.33),
+                size=(batchSize, self.hparams.latentSize),
+                device=self.device)
+
+        return self.raycast(z, phis, thetas)

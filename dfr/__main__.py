@@ -1,36 +1,11 @@
+import torch
 from argparse import ArgumentParser
-from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import TensorBoardLogger
 from pathlib import Path
-from .dataset import DFRDataModule
-from .gan import GAN
-
-def main(args):
-    imageSize = 64
-    logger = TensorBoardLogger(name='lightning_logs', save_dir=Path.cwd())
-    dataset = DFRDataModule(int(args.batch),
-                            Path(args.data),
-                            imageSize=imageSize,
-                            firstN=int(args.dlim) if args.dlim else None,
-                            workers=1)
-    model = GAN(imageSize=imageSize)
-    trainer = Trainer(gpus=int(args.gpu),
-                      logger=logger,
-                      automatic_optimization=False,
-                      precision=(32 if args.full_prec else 16),
-                      max_epochs=int(args.max_epochs))
-    trainer.fit(model, dataset)
-
+from .train import train, HParams
+from .dataset import ImageDataset
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument(
-        '--32',
-        dest='full_prec',
-        action='store_true',
-        default=False,
-        help='use 32-bit training (default 16-bit AMP)'
-    )
     parser.add_argument(
         '--data',
         '-d',
@@ -38,13 +13,9 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
-        '--gpus',
-        dest='gpu',
-    )
-    parser.add_argument(
-        '--epochs',
-        dest='max_epochs',
-        default=3000,
+        '--steps',
+        dest='steps',
+        default=10 ** 5,
     )
     parser.add_argument(
         '--dlim',
@@ -53,8 +24,21 @@ if __name__ == "__main__":
     parser.add_argument(
         '--batch',
         dest='batch',
-        default=48,
+        default=6,
     )
-
     args = parser.parse_args()
-    main(args)
+
+    print(f"Starting training (${args.steps} steps).")
+
+    if torch.cuda.is_available():
+        print('Discovered GPU.')
+        device = torch.device('cuda')
+    else:
+        print('No GPU, falling back to CPU.')
+        device = torch.device('cpu')
+
+    hp = HParams(batchSize=int(args.batch))
+    print(hp)
+    dataCount = int(args.dlim) if args.dlim else None
+    dataset = ImageDataset(Path(args.data), hp.imageSize, dataCount)
+    train(hp, device, dataset, int(args.steps))
