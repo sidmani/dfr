@@ -1,12 +1,11 @@
 import numpy as np
 import torch
-from dfr.raycast.frustum import buildFrustum, enumerateRays, sphereToRect
 from dfr.raycast.sample import sampleRandom, sampleUniform, sampleStratified, scaleRays
 
 def test_sampleUniform():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleUniform(near, far, 5, device=None)
+    samples = sampleUniform(near, far, 5)
     assert samples.shape == (4, 4, 5)
     for i in range(4):
         for j in range(4):
@@ -15,7 +14,7 @@ def test_sampleUniform():
 def test_sampleRandom():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleRandom(near, far, 10, device=None)
+    samples = sampleRandom(near, far, 10)
     assert samples.shape == (4, 4, 10)
     for k in range(4):
         for j in range(4):
@@ -28,7 +27,7 @@ def test_sampleRandom():
 def test_sampleStratified():
     near = torch.zeros(4, 4)
     far = torch.ones(4, 4) * 4.0
-    samples = sampleStratified(near, far, 5, device=None)
+    samples = sampleStratified(near, far, 5)
     assert samples.shape == (4, 4, 5)
     # check that samples are in evenly-spaced divisions
     for k in range(4):

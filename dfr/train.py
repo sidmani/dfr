@@ -6,8 +6,10 @@ from tqdm import tqdm
 import time
 from collections import namedtuple
 from torch.optim import Adam
+from .raycast.frustum import Frustum
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
+from .generator import Generator
 from .optim import stepGenerator, stepDiscriminator
 
 torch.autograd.set_detect_anomaly(True)
@@ -41,13 +43,17 @@ def iterData(dataloader, device):
 
 def train(hparams, device, dataset, steps):
     dis = Discriminator()
-    gen = SDFNetwork(hparams, device)
+
+    # build generator
+    sdf = SDFNetwork(hparams)
+    frustum = Frustum(hparams.fov, hparams.imageSize, device)
+    gen = Generator(sdf, frustum, hparams).to(device)
+
     # TODO: custom beta value
     # TODO: learning rate schedule
     genOpt = Adam(gen.parameters(), hparams.learningRate)
     disOpt = Adam(dis.parameters(), hparams.learningRate)
 
-    print(hparams.batchSize)
     dataloader = iterData(DataLoader(dataset,
         batch_size=hparams.batchSize,
         pin_memory=True,
@@ -56,11 +62,9 @@ def train(hparams, device, dataset, steps):
 
     for idx in tqdm(range(steps)):
         batch = next(dataloader)
-        # gen, dis, genOpt, disOpt, batch, idx
-
         # sample the generator
         # don't use hparams.batchSize because the real batch may be smaller
-        generated = gen.sampleGenerator(batch.shape[0])
+        generated = gen.sample(batch.shape[0], device=device)
 
         # update the generator every nth iteration
         if idx % hparams.discIter == 0:

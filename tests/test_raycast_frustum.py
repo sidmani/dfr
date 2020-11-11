@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from dfr.raycast.frustum import buildFrustum, enumerateRays, sphereToRect
+from dfr.raycast.frustum import Frustum, enumerateRays, sphereToRect
 
 def test_sphereToRect_zAxis():
     v = sphereToRect(torch.zeros(1), torch.zeros(1), 1.0)
@@ -19,12 +19,12 @@ def test_sphereToRect_xAxis():
     assert torch.allclose(v, torch.tensor([1.0, 0.0, 0.0]), atol=5e-7)
 
 def test_buildFrustum_cameraD():
-    cameraD = buildFrustum(2*np.pi/3, 4, device=None).cameraD
+    cameraD = Frustum(2*np.pi/3, 4, device=None).cameraD
     assert cameraD > 1.0
     assert type(cameraD) == np.float64
 
 def test_buildFrustum_angleSpace():
-    f = buildFrustum(np.pi/3, 4, device=None)
+    f = Frustum(np.pi/3, 4, device=None)
     assert f.phiSpace.shape == (4, 4)
     assert f.thetaSpace.shape == (4, 4)
 
@@ -33,7 +33,7 @@ def test_buildFrustum_angleSpace():
     assert torch.equal(f.thetaSpace[0, :], f.thetaSpace[3, :])
 
 def test_buildFrustum_quadrants():
-    f = buildFrustum(np.pi/3, 4, device=None)
+    f = Frustum(np.pi/3, 4, device=None)
 
     # check quadrants are oriented correctly
     assert 0 < f.thetaSpace[3, 3] < np.pi
@@ -43,7 +43,7 @@ def test_buildFrustum_quadrants():
     assert -np.pi / 2 < f.phiSpace[3, 3] < 0
 
 def test_buildFrustum_segment():
-    f = buildFrustum(np.pi/2, 12, device=None)
+    f = Frustum(np.pi/2, 12, device=None)
     for i in range(12):
         for j in range(12):
             assert f.near[i, j] <= f.far[i, j]
@@ -68,7 +68,7 @@ def test_enumerateRays_zMatch():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    f = buildFrustum(2*np.pi/3, px, device=None)
+    f = Frustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
 
     first = rays[0]
@@ -92,7 +92,7 @@ def test_enumerateRays_signs():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    f = buildFrustum(2*np.pi/3, px, device=None)
+    f = Frustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
 
     first = rays[0]
@@ -124,7 +124,7 @@ def test_enumerateRays_signs_theta_pi():
 
     phis = torch.tensor([0.0])
     thetas = torch.tensor([np.pi])
-    f = buildFrustum(2*np.pi/3, px, device=None)
+    f = Frustum(2*np.pi/3, px, device=None)
     rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
 
     first = rays[0]

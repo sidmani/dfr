@@ -2,13 +2,12 @@ import torch
 import numpy as np
 from dfr.sdfNetwork import SDFNetwork
 from dfr.train import HParams
-from dfr.raycast.frustum import buildFrustum
+from dfr.raycast.frustum import Frustum
+from dfr.generator import Generator
 
 # signed-distance function for the half-unit sphere
 class MockSDF:
     def __init__(self):
-        self.frustum = buildFrustum(2.0 * np.pi / 3.0, 8, device=None)
-        self.device = None
         self.hparams = HParams()
 
     def __call__(self, x, latents):
@@ -18,8 +17,12 @@ def test_raycast_sphere():
     phis = torch.tensor([0.0])
     thetas = torch.tensor([0.0])
     latents = torch.zeros(1, 256)
+    hp = HParams(imageSize=8)
 
-    out = SDFNetwork.raycast(MockSDF(), latents, phis, thetas)
+    frustum = Frustum(2.0 * np.pi / 3.0, 8, device=None)
+    gen = Generator(MockSDF(), frustum, hp)
+    out = gen.raycast(latents, phis, thetas)
+
     obj1 = out[0]
     # edges are background
     assert torch.equal(obj1[0, :], torch.ones(8))
@@ -38,9 +41,11 @@ def test_raycast_realSDF():
     thetas = torch.tensor([0.0])
     latents = torch.zeros(1, 256)
     hp = HParams()
-    network = SDFNetwork(hp, device=None)
 
-    out = network.raycast(latents, phis, thetas)
+    frustum = Frustum(2.0 * np.pi / 3.0, hp.imageSize, device=None)
+    gen = Generator(MockSDF(), frustum, hp)
+    out = gen.raycast(latents, phis, thetas)
+
     obj1 = out[0]
     # edges are background
     assert torch.allclose(obj1[0, :], torch.ones(hp.imageSize))

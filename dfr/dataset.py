@@ -18,7 +18,12 @@ class ImageDataset(Dataset):
         blur = transforms.GaussianBlur(3.0, sigma=0.4)
 
         self.dataset = []
-        objects = list(dataPath.glob('*'))
+        objects = sorted(list(dataPath.glob('*')))
+
+        if len(objects) == 0:
+            raise Exception('Dataset is empty!')
+
+        # firstN limits the dataset size if present
         if firstN is not None and firstN < len(objects):
             objects = objects[:firstN]
 
