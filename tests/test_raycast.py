@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from dfr.sdfNetwork import SDFNetwork
-from dfr.train import HParams
+from dfr.checkpoint import HParams
 from dfr.raycast.frustum import Frustum
 from dfr.generator import Generator
 

@@ -1,66 +1,18 @@
 import torch
-from torch.utils.data import DataLoader, get_worker_info
-import numpy as np
-from itertools import repeat
 from tqdm import tqdm
-import time
-from collections import namedtuple
-from torch.optim import Adam
-from .raycast.frustum import Frustum
-from .discriminator import Discriminator
-from .sdfNetwork import SDFNetwork
-from .generator import Generator
 from .optim import stepGenerator, stepDiscriminator
+from .dataset import makeDataloader, ImageDataset
+from .checkpoint import saveModel, loadModel
 
-torch.autograd.set_detect_anomaly(True)
+def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=None):
+    dis, gen, disOpt, genOpt, hparams, startEpoch = loadModel(checkpoint, device)
+    print(hparams)
 
-HParams = namedtuple('HParams', [
-        'learningRate',
-        'raySamples',
-        'weightNorm',
-        'imageSize',
-        'discIter',
-        'latentSize',
-        'fov',
-        'batchSize',
-    ], defaults=[
-        1e-4,
-        32,
-        False,
-        64,
-        3,
-        256,
-        2.0 * np.pi / 3.0,
-        4,
-    ])
+    dataset = ImageDataset(dataPath, firstN=dataCount, imageSize=hparams.imageSize)
+    dataloader = makeDataloader(batchSize, dataset, device)
+    print(f"Starting at epoch {startEpoch}.")
 
-# infinite dataloader
-# https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567
-def iterData(dataloader, device):
-    for loader in repeat(dataloader):
-        for data in loader:
-            yield data.to(device)
-
-def train(hparams, device, dataset, steps):
-    dis = Discriminator()
-
-    # build generator
-    sdf = SDFNetwork(hparams)
-    frustum = Frustum(hparams.fov, hparams.imageSize, device)
-    gen = Generator(sdf, frustum, hparams).to(device)
-
-    # TODO: custom beta value
-    # TODO: learning rate schedule
-    genOpt = Adam(gen.parameters(), hparams.learningRate)
-    disOpt = Adam(dis.parameters(), hparams.learningRate)
-
-    dataloader = iterData(DataLoader(dataset,
-        batch_size=hparams.batchSize,
-        pin_memory=True,
-        shuffle=True,
-        num_workers=1), device=device)
-
-    for idx in tqdm(range(steps)):
+    for idx in tqdm(range(startEpoch, steps)):
         batch = next(dataloader)
         # sample the generator
         # don't use hparams.batchSize because the real batch may be smaller
@@ -72,3 +24,7 @@ def train(hparams, device, dataset, steps):
 
         # update the discriminator
         stepDiscriminator(generated, batch, dis, disOpt)
+
+        # save every n iterations, except idx 0
+        if idx % 10 == 0 and idx != startEpoch:
+            saveModel(gen, dis, genOpt, disOpt, hparams, version=version, epoch=idx, overwrite=True)

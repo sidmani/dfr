@@ -5,7 +5,7 @@ from dfr.sdfNetwork import SDFNetwork
 from dfr.discriminator import Discriminator
 from dfr.generator import Generator
 from dfr.raycast.frustum import Frustum
-from dfr.train import HParams
+from dfr.checkpoint import HParams
 
 def test_stepGenerator():
     hp = HParams()

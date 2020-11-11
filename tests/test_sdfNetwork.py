@@ -1,6 +1,6 @@
 import torch
 from dfr.sdfNetwork import SDFNetwork
-from dfr.train import HParams
+from dfr.checkpoint import HParams
 
 def test_sdfNetwork():
     latentSize = 256
