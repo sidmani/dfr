@@ -51,7 +51,7 @@ def loadModel(checkpoint, device):
     else:
         hparams = HParams()
         startEpoch = 0
-    dis = Discriminator()
+    dis = Discriminator().to(device)
 
     # build generator
     sdf = SDFNetwork(hparams)
