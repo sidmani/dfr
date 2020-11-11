@@ -2,7 +2,7 @@ import torch.nn as nn
 import numpy as np
 
 # geometric initialization (SAL section 4)
-def geometricInit(layers, r=0.98, dropout=0.0):
+def geometricInit(layers, r=0.5, dropout=0.0):
     # initialize first 7 layers according to thm 1, section 4, SAL
     # note that the skip connection dimension is handled properly
     ps = [1.0 - dropout] * (len(layers) - 2) + [1.0]

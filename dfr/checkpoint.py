@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from pathlib import Path
 from torch.optim import Adam
+from torch.optim.lr_scheduler import LambdaLR
 from collections import namedtuple
 from .raycast.frustum import Frustum
 from .discriminator import Discriminator
@@ -56,11 +57,14 @@ def loadModel(checkpoint, device):
     sdf = SDFNetwork(hparams)
     frustum = Frustum(hparams.fov, hparams.imageSize, device)
     gen = Generator(sdf, frustum, hparams).to(device)
+    models = (gen, dis)
 
     # TODO: custom beta value
-    # TODO: learning rate schedule
     genOpt = Adam(gen.parameters(), hparams.learningRate)
     disOpt = Adam(dis.parameters(), hparams.learningRate)
+    optimizers = (genOpt, disOpt)
+
+    # TODO: learning rate schedule
 
     if checkpoint is not None:
         dis.load_state_dict(checkpoint['dis'])
@@ -68,4 +72,4 @@ def loadModel(checkpoint, device):
         genOpt.load_state_dict(checkpoint['gen_opt'])
         disOpt.load_state_dict(checkpoint['dis_opt'])
 
-    return dis, gen, disOpt, genOpt, hparams, startEpoch
+    return models, optimizers, hparams, startEpoch

@@ -2,7 +2,9 @@ import torch
 import numpy as np
 from dfr.sdfNetwork import SDFNetwork
 from dfr.checkpoint import HParams
-from dfr.raycast.frustum import Frustum
+from dfr.raycast.frustum import Frustum, enumerateRays, sphereToRect
+from dfr.raycast.sample import sampleUniform, scaleRays
+from dfr.raycast.shader import fastRayIntegral, shade
 from dfr.generator import Generator
 
 # signed-distance function for the half-unit sphere

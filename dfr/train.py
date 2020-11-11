@@ -6,7 +6,9 @@ from .dataset import makeDataloader, ImageDataset
 from .checkpoint import saveModel, loadModel
 
 def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=None):
-    dis, gen, disOpt, genOpt, hparams, startEpoch = loadModel(checkpoint, device)
+    models, optimizers, hparams, startEpoch = loadModel(checkpoint, device)
+    gen, dis = models
+    genOpt, disOpt = optimizers
     print(hparams)
 
     dataset = ImageDataset(dataPath, firstN=dataCount, imageSize=hparams.imageSize)
@@ -14,7 +16,6 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
     print(f"Starting at epoch {startEpoch}.")
 
     logger = SummaryWriter(log_dir=f'runs/v{version}')
-    logger.add_hparams(hparams._asdict())
 
     for idx in tqdm(range(startEpoch, steps), initial=startEpoch, total=steps):
         batch = next(dataloader)
@@ -31,8 +32,10 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
 
         # log loss every iteration
         logger.add_scalar('discriminator_loss', disLoss, global_step=idx)
-        logger.add_scalar('generator_loss', genLoss, global_step=idx)
+        logger.add_scalar('generator_loss', -genLoss, global_step=idx)
 
         # save every 10 iterations, except idx 0
         if idx % 10 == 0 and idx != startEpoch:
             saveModel(gen, dis, genOpt, disOpt, hparams, version=version, epoch=idx, overwrite=True)
+            logger.add_image('fake', generated[0], global_step=idx, dataformats='HW')
+            logger.add_image('real', batch[0], global_step=idx, dataformats='HW')

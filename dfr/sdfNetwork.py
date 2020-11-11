@@ -21,7 +21,7 @@ class SDFNetwork(nn.Module):
         ])
 
         # SAL geometric initialization
-        geometricInit(self.layers)
+        # geometricInit(self.layers)
 
         self.hparams = hparams
         if hparams.weightNorm:

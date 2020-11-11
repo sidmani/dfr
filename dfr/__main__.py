@@ -34,8 +34,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(f"Starting training (max {args.steps} steps).")
-
     if torch.cuda.is_available():
         print('Discovered GPU.')
         device = torch.device('cuda')

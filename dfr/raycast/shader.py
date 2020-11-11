@@ -25,4 +25,4 @@ def fastRayIntegral(latents, targets, sdf, epsilon):
     return sdf(critPoints.view(-1, 3), latents).view(*targets.shape[:2])
 
 def shade(values, k=10.0):
-    return 1.0 / (1 + torch.exp(-k * values))
+    return 1.0 / (1.0 + torch.exp(-k * values))
