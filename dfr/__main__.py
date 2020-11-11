@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     if args.ckpt:
         # load the newest checkpoint for given version
-        checkpointPath = Path.cwd() / 'checkpoints' / f"v{args.ckpt}"
+        checkpointPath = Path.cwd() / 'runs' / f"v{args.ckpt}"
         if not checkpointPath.exists:
             raise Exception(f'Version {args.ckpt} does not exist')
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         version = int(args.ckpt)
         print(f"Loaded version {version}, epoch {checkpoint['epoch']}.")
     else:
-        checkpointDir = Path.cwd() / 'checkpoints'
+        checkpointDir = Path.cwd() / 'runs'
         checkpointDir.mkdir(parents=True, exist_ok=True)
         versions = [-1]
         for f in checkpointDir.glob('v*'):

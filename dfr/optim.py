@@ -43,8 +43,10 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     # compute the WGAN-gp gradient penalty
     penalty = gradientPenalty(dis, real, fake)
 
-    disLoss = dis(fake).mean() - dis(real).mean() + penalty * penaltyWeight
+    genLoss = dis(fake).mean()
+    disLoss = genLoss - dis(real).mean() + penalty * penaltyWeight
 
     disLoss.backward()
     disOpt.step()
     disOpt.zero_grad(set_to_none=True)
+    return disLoss, -genLoss

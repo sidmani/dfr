@@ -27,7 +27,7 @@ HParams = namedtuple('HParams', [
     ])
 
 def saveModel(gen, dis, genOpt, disOpt, hparams, version, epoch, overwrite=True):
-    ckptDir = Path.cwd() / 'checkpoints' / f"v{version}"
+    ckptDir = Path.cwd() / 'runs' / f"v{version}"
     ckptDir.mkdir(parents=True, exist_ok=True)
 
     if overwrite:
