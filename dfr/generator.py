@@ -49,10 +49,11 @@ class Generator(nn.Module):
         phis = torch.ones(batchSize, device=device) * phi
         # azimuthal angle: 0 <= theta < 2pi
         thetas = torch.rand(batchSize, device=device) * (2.0 * np.pi)
-        # latents with mean 0, variance 0.33
+        # latents with mean 0, sigma 1e-4 (per SALD)
+        # DFR uses sigma=sqrt(0.33), but that's a different architecture (OccNet)
         z = torch.normal(
                 mean=0.0,
-                std=np.sqrt(0.33),
+                std=1e-4,
                 size=(batchSize, self.hparams.latentSize),
                 device=device)
 

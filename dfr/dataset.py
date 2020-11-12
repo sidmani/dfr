@@ -18,7 +18,7 @@ class ImageDataset(Dataset):
             transforms.ToTensor(),
         ])
 
-        blur = transforms.GaussianBlur(5.0, sigma=0.8)
+        blur = transforms.GaussianBlur(5.0, sigma=1.3)
 
         self.dataset = []
         objects = sorted(list(dataPath.glob('*')))

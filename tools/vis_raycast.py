@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from dfr.checkpoint import HParams
 from dfr.generator import Generator
 from dfr.raycast.frustum import Frustum
+from dfr.sdfNetwork import SDFNetwork
 
 # signed-distance function for the half-unit sphere
 class MockSDF:
@@ -22,9 +23,11 @@ thetas = torch.tensor([np.pi/4])
 latents = torch.zeros(1, 256)
 hp = HParams(imageSize=128)
 
+
 frustum = Frustum(2.0 * np.pi / 3.0, hp.imageSize, device=None)
-gen = Generator(MockSDFCube(), frustum, hp)
-out = gen.raycast(latents, phis, thetas)
+gen = Generator(SDFNetwork(hp), frustum, hp)
+# out = gen.raycast(latents, phis, thetas)
+out = gen.sample(1)
 
 obj1 = 1.0 - out[0].detach().numpy()
 
