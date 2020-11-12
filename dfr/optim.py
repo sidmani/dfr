@@ -10,7 +10,7 @@ def gradientPenalty(dis, real, fake):
     outputs = dis(interp)
     grad = torch.autograd.grad(outputs=outputs,
                                inputs=interp,
-                               grad_outputs=torch.ones(outputs.size(), device=device),
+                               grad_outputs=torch.ones(outputs.shape, device=device),
                                create_graph=True,
                                retain_graph=True,
                                only_inputs=True)[0]

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .raycast.frustum import enumerateRays, sphereToRect
-from .raycast.shader import fastRayIntegral, shade
+from .raycast.shader import fastRayIntegral, shadeUniform
 from .raycast.sample import sampleUniform, sampleStratified, scaleRays
 
 class Generator(nn.Module):
@@ -22,7 +22,7 @@ class Generator(nn.Module):
         # uniformly sample distances from the camera in the unit sphere
         # TODO: should sampling be weighted by ray length?
         # unsqueeze because we're using the same sample values for all objects
-        samples = sampleUniform(
+        samples = sampleStratified(
                 self.frustum.near,
                 self.frustum.far,
                 self.hparams.raySamples).unsqueeze(0)
@@ -37,11 +37,11 @@ class Generator(nn.Module):
                 self.frustum.cameraD * cameraLoc)
 
         # compute intersections for rays
-        values = fastRayIntegral(latents, targets, self.sdf, 10e-10)
+        values, normals = fastRayIntegral(latents, targets, self.sdf, 10e-10)
 
         # shape [px, px, channels]
         result = torch.ones(rays.shape[:3], device=device)
-        result[:, self.frustum.mask] = shade(values)
+        result[:, self.frustum.mask] = shadeUniform(values)
         return result
 
     def sample(self, batchSize, phi=np.pi / 6.0, device=None):

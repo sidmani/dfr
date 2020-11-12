@@ -20,7 +20,7 @@ HParams = namedtuple('HParams', [
     ], defaults=[
         1e-4,
         32,
-        False,
+        True,
         3,
         256,
         2.0 * np.pi / 3.0,

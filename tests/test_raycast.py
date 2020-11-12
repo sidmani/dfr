@@ -4,7 +4,7 @@ from dfr.sdfNetwork import SDFNetwork
 from dfr.checkpoint import HParams
 from dfr.raycast.frustum import Frustum, enumerateRays, sphereToRect
 from dfr.raycast.sample import sampleUniform, scaleRays
-from dfr.raycast.shader import fastRayIntegral, shade
+from dfr.raycast.shader import fastRayIntegral, shadeUniform
 from dfr.generator import Generator
 
 # signed-distance function for the half-unit sphere
@@ -46,7 +46,7 @@ def test_raycast_sphere_manual():
     values = fastRayIntegral(latents, targets, sdf, 10e-10).view(1, 8, 8)
 
     # shape [px, px, channels]
-    out = shade(values)
+    out = shadeUniform(values)
 
     obj1 = out[0]
     # edges are background

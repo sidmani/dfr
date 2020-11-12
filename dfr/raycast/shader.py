@@ -17,12 +17,23 @@ def searchRays(latents, targets, sdf, epsilon):
     return torch.gather(targets, dim=2, index=minIdx).squeeze(2)
 
 def fastRayIntegral(latents, targets, sdf, epsilon):
+    device = latents.device
+
     with torch.no_grad():
-        critPoints = searchRays(latents, targets, sdf, epsilon)
+        critPoints = searchRays(latents, targets, sdf, epsilon).view(-1, 3)
+
+    critPoints.requires_grad = True
 
     # now, with gradient, sample the useful points
-    # TODO: compute normals here + eikonal regularization loss
-    return sdf(critPoints.view(-1, 3), latents).view(*targets.shape[:2])
+    out = sdf(critPoints, latents).view(*targets.shape[:2])
+    # compute the normals at each point
+    normals = torch.autograd.grad(outputs=out,
+                                  inputs=critPoints,
+                                  grad_outputs=torch.ones(out.shape, device=device),
+                                  create_graph=True,
+                                  retain_graph=True,
+                                  only_inputs=True)[0]
+    return out, normals
 
-def shade(values, k=10.0, j=9.0):
+def shadeUniform(values, k=40.0, j=15.0):
     return 1.0 / (1.0 + j * torch.exp(-k * values))
