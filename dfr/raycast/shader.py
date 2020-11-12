@@ -24,5 +24,5 @@ def fastRayIntegral(latents, targets, sdf, epsilon):
     # TODO: compute normals here
     return sdf(critPoints.view(-1, 3), latents).view(*targets.shape[:2])
 
-def shade(values, k=10.0):
-    return 1.0 / (1.0 + torch.exp(-k * values))
+def shade(values, k=10.0, j=9.0):
+    return 1.0 / (1.0 + j * torch.exp(-k * values))

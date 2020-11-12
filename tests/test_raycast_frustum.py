@@ -23,24 +23,31 @@ def test_buildFrustum_cameraD():
     assert cameraD > 1.0
     assert type(cameraD) == np.float64
 
-def test_buildFrustum_angleSpace():
+def test_buildFrustum_viewField():
     f = Frustum(np.pi/3, 4, device=None)
-    assert f.phiSpace.shape == (4, 4)
-    assert f.thetaSpace.shape == (4, 4)
+    assert f.viewField.shape == (1, 4 * 4, 3, 1)
+    vf = f.viewField.view(4, 4, 3)
 
     # check that these are repeated in the correct directions
-    assert torch.equal(f.phiSpace[:, 0], f.phiSpace[:, 3])
-    assert torch.equal(f.thetaSpace[0, :], f.thetaSpace[3, :])
+    assert torch.equal(vf[:, 0, 1], vf[:, 3, 1])
+    assert torch.equal(vf[0, :, 0], vf[3, :, 0])
 
 def test_buildFrustum_quadrants():
     f = Frustum(np.pi/3, 4, device=None)
 
     # check quadrants are oriented correctly
-    assert 0 < f.thetaSpace[3, 3] < np.pi
-    assert np.pi < f.thetaSpace[0, 0] < np.pi * 2
+    vf = f.viewField.view(4, 4, 3)
+    assert vf[0, 0, 0] < 0
+    assert vf[0, 0, 1] > 0
 
-    assert 0 < f.phiSpace[0, 0] < np.pi / 2
-    assert -np.pi / 2 < f.phiSpace[3, 3] < 0
+    assert vf[0, 3, 0] > 0
+    assert vf[0, 3, 1] > 0
+
+    assert vf[3, 0, 0] < 0
+    assert vf[3, 0, 1] < 0
+
+    assert vf[3, 3, 0] > 0
+    assert vf[3, 3, 1] < 0
 
 def test_buildFrustum_segment():
     f = Frustum(np.pi/2, 12, device=None)
@@ -57,9 +64,8 @@ def test_enumerateRays_shape():
 
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
-    phiSpace = torch.rand(4, 4)
-    thetaSpace = torch.rand(4, 4)
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    f = Frustum(2*np.pi/3, px, device=None)
+    rays = enumerateRays(phis, thetas, f.viewField, imageSize=px)
     assert rays.shape == (batch_size, px, px, 3)
 
 def test_enumerateRays_zMatch():
@@ -69,7 +75,7 @@ def test_enumerateRays_zMatch():
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
+    rays = enumerateRays(phis, thetas, f.viewField, imageSize=px)
 
     first = rays[0]
     assert first.shape == (px, px, 3)
@@ -93,7 +99,7 @@ def test_enumerateRays_signs():
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
+    rays = enumerateRays(phis, thetas, f.viewField, px)
 
     first = rays[0]
     # all z values are negative
@@ -125,7 +131,7 @@ def test_enumerateRays_signs_theta_pi():
     phis = torch.tensor([0.0])
     thetas = torch.tensor([np.pi])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays = enumerateRays(phis, thetas, f.phiSpace, f.thetaSpace)
+    rays = enumerateRays(phis, thetas, f.viewField, px)
 
     first = rays[0]
     # all z values are positive
@@ -152,47 +158,28 @@ def test_enumerateRays_signs_theta_pi():
             assert first[i, j+2, 0] < 0
 
 def test_enumerateRays_signs_theta_nonzero():
-    px = 4
+    px = 3
 
     phis = torch.tensor([0.0])
     thetas = torch.tensor([np.pi / 6])
-    thetaSpace = torch.tensor([
-        [-np.pi/6, 0, np.pi/6],
-        [-np.pi/6, 0, np.pi/6],
-        [-np.pi/6, 0, np.pi/6],
-        ]) + np.pi
-    phiSpace = torch.tensor([
-        [np.pi/6, np.pi/6, np.pi/6],
-        [0.0, 0.0, 0.0],
-        [-np.pi/6, -np.pi/6, -np.pi/6]
-        ])
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    f = Frustum(np.pi/3, px, device=None)
+    rays = enumerateRays(phis, thetas, f.viewField, px)
 
     first = rays[0]
-    # # all z values are positive
-    # for i in range(4):
-    #     for j in range(4):
-    #         assert first[i, j, 2] > 0
-    print(first)
-    print(first[1, 2])
+    # all z values are negative
+    for i in range(3):
+        for j in range(3):
+            assert first[i, j, 2] < 0
 
     # right center pixel should be negative z axis
     assert torch.allclose(first[1, 2], torch.tensor([0.0, 0.0, -1.0]), atol=1e-6)
 
 def test_enumerateRays_signs_phi_nonzero():
+    px = 3
     phis = torch.tensor([np.pi/6])
     thetas = torch.tensor([0.0])
-    thetaSpace = torch.tensor([
-        [-np.pi/6, 0, np.pi/6],
-        [-np.pi/6, 0, np.pi/6],
-        [-np.pi/6, 0, np.pi/6],
-        ]) + np.pi
-    phiSpace = torch.tensor([
-        [np.pi/6, np.pi/6, np.pi/6],
-        [0.0, 0.0, 0.0],
-        [-np.pi/6, -np.pi/6, -np.pi/6]
-        ])
-    rays = enumerateRays(phis, thetas, phiSpace, thetaSpace)
+    f = Frustum(np.pi/3, px, device=None)
+    rays = enumerateRays(phis, thetas, f.viewField, px)
 
     first = rays[0]
     # all z values are negative

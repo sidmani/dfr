@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from .raycast.frustum import enumerateRays, sphereToRect
 from .raycast.shader import fastRayIntegral, shade
-from .raycast.sample import sampleUniform, scaleRays
+from .raycast.sample import sampleUniform, sampleStratified, scaleRays
 
 class Generator(nn.Module):
     def __init__(self, sdf, frustum, hparams):
@@ -17,21 +17,24 @@ class Generator(nn.Module):
         device = latents.device
 
         # build a rotated frustum for each input angle
-        rays = enumerateRays(phis, thetas, self.frustum.phiSpace, self.frustum.thetaSpace)
+        rays = enumerateRays(phis, thetas, self.frustum.viewField, self.hparams.imageSize)
 
         # uniformly sample distances from the camera in the unit sphere
+        # TODO: should sampling be weighted by ray length?
         # unsqueeze because we're using the same sample values for all objects
         samples = sampleUniform(
                 self.frustum.near,
                 self.frustum.far,
                 self.hparams.raySamples).unsqueeze(0)
 
-        # compute the sampling points for each ray that intersects the unit sphere
+        # unscaled camera location
         cameraLoc = sphereToRect(phis, thetas, self.frustum.cameraD)
+
+        # compute the sampling points for each ray that intersects the unit sphere
         targets = scaleRays(
                 rays[:, self.frustum.mask],
                 samples[:, self.frustum.mask],
-                cameraLoc)
+                self.frustum.cameraD * cameraLoc)
 
         # compute intersections for rays
         values = fastRayIntegral(latents, targets, self.sdf, 10e-10)
