@@ -10,9 +10,10 @@ def sphereToRect(phi, theta, r):
     ], dim=-1)
 
 def enumerateRays(phis, thetas, viewField, imageSize):
+    device = phis.device
     # [px, px, 3, 3]
-    zeros = torch.zeros(phis.shape[0])
-    ones = torch.ones(phis.shape[0])
+    zeros = torch.zeros(phis.shape[0], device=device)
+    ones = torch.ones(phis.shape[0], device=device)
     cos_theta = torch.cos(thetas)
     sin_theta = torch.sin(thetas)
     cos_phi = torch.cos(phis)
