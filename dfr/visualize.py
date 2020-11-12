@@ -2,48 +2,65 @@ import numpy as np
 import torch
 from argparse import ArgumentParser
 from skimage import measure
-from .gan import GAN
 from trimesh import Trimesh, Scene
 from trimesh.viewer.windowed import SceneViewer
 from pathlib import Path
+from .generator import Generator
+from .sdfNetwork import SDFNetwork
+from .raycast.frustum import Frustum
 import re
 
 def main(args):
-    if args.epoch is None:
-        epochs = Path(f"lightning_logs/version_{args.version}/checkpoints/").glob('*.ckpt')
-        epochs = list(map(lambda x: int(re.match(r"epoch=([0-9]+)", x.stem).group(1)), epochs))
-        epoch = max(epochs)
-        print(f"Loading epoch {epoch}")
+    if args.epoch:
+        epoch = int(args.epoch)
     else:
-        epoch = args.epoch
+        # load the newest checkpoint for given version
+        checkpointPath = Path.cwd() / 'runs' / f"v{args.ckpt}"
+        if not checkpointPath.exists:
+            raise Exception(f'Version {args.ckpt} does not exist')
 
+        available = list(checkpointPath.glob('*.pt'))
+        if len(available) == 0:
+            raise Exception(f'No checkpoints found for version {args.ckpt}')
+
+        nums = []
+        for f in available:
+            match = re.match("e([0-9]+)", str(f.stem))
+            nums.append(int(match[1]))
+        epoch = max(nums)
+
+    checkpoint = torch.load(checkpointPath / f"e{epoch}.pt", map_location=torch.device('cpu'))
+    version = int(args.ckpt)
+    print(f"Loaded version {version}, epoch {checkpoint['epoch']}.")
+
+    hp = checkpoint['hparams']
+    frustum = Frustum(2 * np.pi / 3, 128, device=None)
+    sdf = SDFNetwork(hp)
+    gen = Generator(sdf, frustum, hp)
+    gen.load_state_dict(checkpoint['gen'])
     res = int(args.res)
 
+    with torch.no_grad():
+        points = torch.linspace(-1.0, 1.0, res)
+        x, y, z = torch.meshgrid(points, points, points)
 
-    model = GAN.load_from_checkpoint(f"lightning_logs/version_{args.version}/checkpoints/epoch={epoch}.ckpt")
+        # grid has dimension res^3 x 3
+        grid = torch.cat([
+                torch.flatten(x).unsqueeze(1),
+                torch.flatten(y).unsqueeze(1),
+                torch.flatten(z).unsqueeze(1),
+            ], dim=1)
 
-    if args.object is not None:
-        objId = int(args.object)
-    else:
-        objId = np.random.randint(0, model.embedding.num_embeddings)
+        latent = torch.normal(
+                mean=0.0,
+                std=1e-2,
+                size=(1, hp.latentSize))
 
-    points = torch.linspace(-0.55, 0.55, res)
-    x, y, z = torch.meshgrid(points, points, points)
-
-    # grid has dimension res^3 x 3
-    grid = torch.cat([
-            torch.flatten(x).unsqueeze(1),
-            torch.flatten(y).unsqueeze(1),
-            torch.flatten(z).unsqueeze(1),
-        ], dim=1)
-
-    latent = torch.rand(1, model.hparams.latentSize)
-
-    # create input vector and compute values
-    out = model.gen.sdf(grid, latent)
-    # reshape and return a 3D grid
-    # TODO: does this cause rotation?
-    cubic = torch.reshape(out, (res, res, res))
+        # create input vector and compute values
+        out = gen.sdf(grid, latent)
+        # reshape and return a 3D grid
+        # TODO: does this cause rotation?
+        cubic = torch.reshape(out, (res, res, res)).detach().numpy()
 
     verts, faces, normals, values = measure.marching_cubes(cubic, 0)
     mesh = Trimesh(vertices=verts, faces=faces)
@@ -62,14 +79,8 @@ if __name__ == "__main__":
     parser.add_argument(
             '--version',
             '-v',
-            dest='version',
-            default=None,
-    )
-    parser.add_argument(
-            '--object',
-            '-o',
-            dest='object',
-            default=None,
+            dest='ckpt',
+            required=True,
     )
     parser.add_argument(
             '--resolution',

@@ -53,7 +53,7 @@ class Generator(nn.Module):
         # DFR uses sigma=sqrt(0.33), but that's a different architecture (OccNet)
         z = torch.normal(
                 mean=0.0,
-                std=1e-4,
+                std=1e-2,
                 size=(batchSize, self.hparams.latentSize),
                 device=device)
 

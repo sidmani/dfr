@@ -28,11 +28,11 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
             stepGenerator(generated, dis, genOpt)
 
         # update the discriminator
-        disLoss, genLoss = stepDiscriminator(generated, batch, dis, disOpt)
+        disReal, disFake = stepDiscriminator(generated, batch, dis, disOpt)
 
         # log loss every iteration
-        logger.add_scalar('discriminator_loss', disLoss, global_step=idx)
-        logger.add_scalar('generator_loss', -genLoss, global_step=idx)
+        logger.add_scalar('discriminator/fake', disFake, global_step=idx)
+        logger.add_scalar('discriminator/real', disReal, global_step=idx)
 
         # save every 10 iterations, except idx 0
         if idx % 10 == 0 and idx != startEpoch:

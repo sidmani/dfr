@@ -1,15 +1,6 @@
 import torch
 import torch.nn as nn
 
-# DCGAN weight initialization
-# def weights_init(m):
-#     classname = m.__class__.__name__
-#     if classname.find('Conv') != -1:
-#         nn.init.normal_(m.weight.data, 0.0, 0.02)
-#     else:
-#         nn.init.normal_(m.weight.data, 1.0, 0.02)
-#         nn.init.constant_(m.bias.data, 0)
-
 class Discriminator(nn.Module):
     def __init__(self, channels=1, fmapSize=64):
         super().__init__()
@@ -23,10 +14,11 @@ class Discriminator(nn.Module):
             nn.Conv2d(fmapSize * 8, 1, 4, 1, 0)
         ])
 
-        self.activation = torch.nn.ReLU()
+        # weight init
+        for layer in self.layers:
+            nn.init.normal_(layer.weight.data, 0.0, 0.02)
 
-        # weight initialization
-        # self.main.apply(weights_init)
+        self.activation = torch.nn.LeakyReLU()
 
     def forward(self, x):
         # re-insert the channel dimension

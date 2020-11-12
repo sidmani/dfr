@@ -21,7 +21,7 @@ def fastRayIntegral(latents, targets, sdf, epsilon):
         critPoints = searchRays(latents, targets, sdf, epsilon)
 
     # now, with gradient, sample the useful points
-    # TODO: compute normals here
+    # TODO: compute normals here + eikonal regularization loss
     return sdf(critPoints.view(-1, 3), latents).view(*targets.shape[:2])
 
 def shade(values, k=10.0, j=9.0):
