@@ -21,11 +21,11 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
         batch = next(dataloader)
         # sample the generator
         # don't use hparams.batchSize because the real batch may be smaller
-        generated = gen.sample(batch.shape[0], device=device)
+        generated, normals = gen.sample(batch.shape[0], device=device)
 
         # update the generator every nth iteration
         if idx % hparams.discIter == 0:
-            stepGenerator(generated, dis, genOpt)
+            stepGenerator(generated, normals, dis, genOpt)
 
         # update the discriminator
         disReal, disFake = stepDiscriminator(generated, batch, dis, disOpt)
@@ -37,5 +37,6 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
         # save every 10 iterations, except idx 0
         if idx % 10 == 0 and idx != startEpoch:
             saveModel(gen, dis, genOpt, disOpt, hparams, version=version, epoch=idx, overwrite=True)
-            logger.add_image('fake', generated[0], global_step=idx)
+            logger.add_images('fake', generated, global_step=idx)
+            # logger.add_image('fake', generated[0], global_step=idx)
             logger.add_image('real', batch[0], global_step=idx)

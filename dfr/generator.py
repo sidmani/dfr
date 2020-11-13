@@ -43,7 +43,7 @@ class Generator(nn.Module):
         result = torch.zeros(*rays.shape[:3], 3, device=device)
         shaded = shade(values, texture, normals)
         result[:, self.frustum.mask] = shaded.view(result.shape[0], -1, 3)
-        return result.permute(0, 3, 1, 2)
+        return result.permute(0, 3, 1, 2), normals
 
     def sample(self, batchSize, phi=np.pi / 6.0, device=None):
         # elevation angle: phi = pi/6
