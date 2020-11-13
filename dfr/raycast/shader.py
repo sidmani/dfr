@@ -47,7 +47,7 @@ def shade(values, texture, normals, fuzz=15.0):
     # lightFactor = torch.matmul(unitNormals, lightDir).squeeze(1)
     # shade only the points that intersect the surface with the sampled color
     # result = texture * lightFactor
-    result = torch.empty(texture.shape)
+    result = torch.empty(texture.shape, device=values.device)
     hits = values.squeeze(1) <= 0.0
     notHits = ~hits
 
