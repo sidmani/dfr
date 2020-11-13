@@ -57,7 +57,7 @@ def main(args):
                 size=(1, hp.latentSize))
 
         # create input vector and compute values
-        out = gen.sdf(grid, latent)
+        out, normals = gen.sdf(grid, latent)
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
         cubic = torch.reshape(out, (res, res, res)).detach().numpy()

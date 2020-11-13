@@ -17,10 +17,10 @@ def gradientPenalty(dis, real, fake):
 
     return ((grad.norm(dim=1) - 1.0) ** 2.0).mean()
 
-def stepGenerator(fake, normals, dis, genOpt):
+def stepGenerator(fake, normals, dis, genOpt, eikonalFactor=0.1):
     eikonalLoss = torch.abs(normals.norm(dim=1) - 1.0).mean()
     # check what the discriminator thinks
-    genLoss = -dis(fake).mean() + eikonalLoss
+    genLoss = -dis(fake).mean() + eikonalFactor * eikonalLoss
 
     # graph: genLoss -> discriminator -> generator
     genLoss.backward()
