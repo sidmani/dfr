@@ -23,10 +23,9 @@ thetas = torch.tensor([np.pi/4])
 latents = torch.zeros(1, 256)
 hp = HParams(imageSize=128)
 
-
 frustum = Frustum(2.0 * np.pi / 3.0, hp.imageSize, device=None)
 gen = Generator(SDFNetwork(hp), frustum, hp)
-out = gen.raycast(latents, phis, thetas)
+out, normals = gen.raycast(latents, phis, thetas)
 
 obj1 = out[0].permute(1, 2, 0).detach().numpy()
 

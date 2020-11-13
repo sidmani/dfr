@@ -17,7 +17,7 @@ def gradientPenalty(dis, real, fake):
 
     return ((grad.norm(dim=1) - 1.0) ** 2.0).mean()
 
-def stepGenerator(fake, normals, dis, genOpt, eikonalFactor=0.1):
+def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
     eikonalLoss = torch.abs(normals.norm(dim=1) - 1.0).mean()
     # check what the discriminator thinks
     genLoss = -dis(fake).mean() + eikonalFactor * eikonalLoss
@@ -40,6 +40,7 @@ def stepGenerator(fake, normals, dis, genOpt, eikonalFactor=0.1):
 def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     # the generator's not gonna be updated, so detach it from the grad graph
     # detach() sets requires_grad=False, so reset it to True
+    # need to clone so that in-place ops in CNN are legal
     fake = fake.detach().clone().requires_grad_()
     # compute the WGAN-gp gradient penalty
     penalty = gradientPenalty(dis, real, fake)

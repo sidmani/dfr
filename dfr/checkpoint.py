@@ -17,6 +17,7 @@ HParams = namedtuple('HParams', [
         'latentSize',
         'fov',
         'imageSize',
+        'eikonalFactor',
     ], defaults=[
         1e-4,
         32,
@@ -25,6 +26,7 @@ HParams = namedtuple('HParams', [
         256,
         2.0 * np.pi / 3.0,
         64,
+        0.5,
     ])
 
 def saveModel(gen, dis, genOpt, disOpt, hparams, version, epoch, overwrite=True):

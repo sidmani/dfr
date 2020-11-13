@@ -9,19 +9,21 @@ class SDFNetwork(nn.Module):
         assert width > hparams.latentSize + 3
 
         self.sdfLayers = nn.ModuleList([
-            nn.Linear(hparams.latentSize, width),
+            nn.Linear(hparams.latentSize + 3, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, width - (hparams.latentSize + 3)),
             # skip connection from input: latent + x (into 5th layer)
-            nn.Linear(width, width),
-            nn.Linear(width, width),
             # branch here for texture
+            nn.Linear(width, width),
+            nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
 
         self.textureLayers = nn.ModuleList([
+            nn.Linear(width, width),
+            nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, 3),
         ])
@@ -29,48 +31,49 @@ class SDFNetwork(nn.Module):
         # SAL geometric initialization
         geometricInit(self.sdfLayers)
 
+        # SIREN initialization
         for layer in self.textureLayers:
-            nn.init.normal_(layer.weight)
+            outDims = float(layer.out_features)
+            s = np.sqrt(6/outDims)
+            # nn.init.normal_(layer.weight, 0.0, 1.0)
+            nn.init.uniform_(layer.weight, -s, s)
 
         self.hparams = hparams
         if hparams.weightNorm:
             for i in range(8):
                 self.sdfLayers[i] = nn.utils.weight_norm(self.sdfLayers[i])
 
-            for i in range(2):
+            for i in range(4):
                 self.textureLayers[i] = nn.utils.weight_norm(self.textureLayers[i])
 
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
     def forward(self, pts, latents, geometryOnly=False):
-        # first 4 layers only deal with latents
-        r = latents
+        sampleCount = pts.shape[0] // latents.shape[0]
+        expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
+
+        r = torch.cat([pts, expandedLatents], dim=1)
         for i in range(4):
             r = self.activation(self.sdfLayers[i](r))
 
         # skip connection
         # per SAL supplementary: divide by sqrt(2) to normalize
-        sampleCount = pts.shape[0] // latents.shape[0]
-        processed = torch.repeat_interleave(r, sampleCount, dim=0)
-
-        # may be a way to create this in parent
-        expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
-
         # TODO: layer idx 4 can be split into separate matrices and cached
-        # expected gain ~7%
-        r = torch.cat([pts, expandedLatents, processed], dim=1) / np.sqrt(2)
-        for i in range(2):
-            r = self.activation(self.sdfLayers[i + 4](r))
+        r = torch.cat([pts, expandedLatents, r], dim=1) / np.sqrt(2)
 
         # SDF portion
-        sdf = self.activation(self.sdfLayers[6](r))
+        sdf = r
+        for i in range(3):
+            sdf = self.activation(self.sdfLayers[i + 4](sdf))
         sdf = torch.tanh(self.sdfLayers[7](sdf))
+
         if geometryOnly:
             return sdf
 
         # Texture portion
-        texture = self.activation(self.textureLayers[0](r))
-        texture = torch.sigmoid(self.textureLayers[1](texture))
-
+        texture = r
+        for i in range(3):
+            texture = self.activation(self.textureLayers[i](texture))
+        texture = torch.sin(self.textureLayers[3](texture)) / 2.0 + 0.5
         return sdf, texture

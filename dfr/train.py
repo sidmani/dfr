@@ -25,7 +25,7 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
 
         # update the generator every nth iteration
         if idx % hparams.discIter == 0:
-            stepGenerator(generated, normals, dis, genOpt)
+            stepGenerator(generated, normals, dis, genOpt, hparams.eikonalFactor)
 
         # update the discriminator
         disReal, disFake = stepDiscriminator(generated, batch, dis, disOpt)
