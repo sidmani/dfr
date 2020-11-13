@@ -8,7 +8,7 @@ class SDFNetwork(nn.Module):
         super().__init__()
         assert width > hparams.latentSize + 3
 
-        self.layers = nn.ModuleList([
+        self.sdfLayers = nn.ModuleList([
             nn.Linear(hparams.latentSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
@@ -16,26 +16,35 @@ class SDFNetwork(nn.Module):
             # skip connection from input: latent + x (into 5th layer)
             nn.Linear(width, width),
             nn.Linear(width, width),
+            # branch here
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
 
+        self.textureLayers = nn.ModuleList([
+            nn.Linear(width, width),
+            nn.Linear(width, 3),
+        ])
+
         # SAL geometric initialization
-        geometricInit(self.layers)
+        geometricInit(self.sdfLayers)
 
         self.hparams = hparams
         if hparams.weightNorm:
             for i in range(8):
-                self.layers[i] = nn.utils.weight_norm(self.layers[i])
+                self.sdfLayers[i] = nn.utils.weight_norm(self.sdfLayers[i])
+
+            for i in range(2):
+                self.textureLayers[i] = nn.utils.weight_norm(self.textureLayers[i])
 
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    def forward(self, pts, latents):
+    def forward(self, pts, latents, geometryOnly=False):
         # first 4 layers only deal with latents
         r = latents
         for i in range(4):
-            r = self.activation(self.layers[i](r))
+            r = self.activation(self.sdfLayers[i](r))
 
         # skip connection
         # per SAL supplementary: divide by sqrt(2) to normalize
@@ -48,7 +57,17 @@ class SDFNetwork(nn.Module):
         # TODO: layer idx 4 can be split into separate matrices and cached
         # expected gain ~7%
         r = torch.cat([pts, expandedLatents, processed], dim=1) / np.sqrt(2)
-        for i in range(3):
-            r = self.activation(self.layers[i + 4](r))
+        for i in range(2):
+            r = self.activation(self.sdfLayers[i + 4](r))
 
-        return torch.tanh(self.layers[7](r))
+        # SDF portion
+        sdf = self.activation(self.sdfLayers[6](r))
+        sdf = torch.tanh(self.sdfLayers[7](sdf))
+        if geometryOnly:
+            return sdf
+
+        # Texture portion
+        texture = self.activation(self.textureLayers[0](r))
+        texture = torch.sigmoid(self.textureLayers[1](texture))
+
+        return sdf, texture

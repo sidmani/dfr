@@ -5,7 +5,7 @@ import torch
 def gradientPenalty(dis, real, fake):
     device = real.device
 
-    epsilon = torch.rand(real.shape[0], 1, 1, device=device)
+    epsilon = torch.rand(real.shape[0], 1, 1, 1, device=device)
     interp = epsilon * real + (1.0 - epsilon) * fake
     outputs = dis(interp)
     grad = torch.autograd.grad(outputs=outputs,

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .raycast.frustum import enumerateRays, sphereToRect
-from .raycast.shader import fastRayIntegral, shadeUniform
+from .raycast.shader import fastRayIntegral, shade
 from .raycast.sample import sampleUniform, sampleStratified, scaleRays
 
 class Generator(nn.Module):
@@ -37,12 +37,13 @@ class Generator(nn.Module):
                 self.frustum.cameraD * cameraLoc)
 
         # compute intersections for rays
-        values, normals = fastRayIntegral(latents, targets, self.sdf, 10e-10)
+        values, texture, normals = fastRayIntegral(latents, targets, self.sdf, 10e-10)
 
-        # shape [px, px, channels]
-        result = torch.ones(rays.shape[:3], device=device)
-        result[:, self.frustum.mask] = shadeUniform(values)
-        return result
+        # shape [batch, px, px, channels]
+        result = torch.zeros(*rays.shape[:3], 3, device=device)
+        shaded = shade(values, texture, normals)
+        result[:, self.frustum.mask] = shaded.view(result.shape[0], -1, 3)
+        return result.permute(0, 3, 1, 2)
 
     def sample(self, batchSize, phi=np.pi / 6.0, device=None):
         # elevation angle: phi = pi/6

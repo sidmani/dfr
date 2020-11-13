@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self, channels=1, fmapSize=64):
+    def __init__(self, channels=3, fmapSize=64):
         super().__init__()
         # DC-GAN discriminator architecture
         # batch norm omitted per WGAN-GP
@@ -21,8 +21,6 @@ class Discriminator(nn.Module):
         self.activation = torch.nn.LeakyReLU()
 
     def forward(self, x):
-        # re-insert the channel dimension
-        x = x.unsqueeze(1)
         for i in range(4):
             x = self.activation(self.layers[i](x))
         return torch.sigmoid(self.layers[4](x)).squeeze()

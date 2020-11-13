@@ -37,5 +37,5 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
         # save every 10 iterations, except idx 0
         if idx % 10 == 0 and idx != startEpoch:
             saveModel(gen, dis, genOpt, disOpt, hparams, version=version, epoch=idx, overwrite=True)
-            logger.add_image('fake', generated[0], global_step=idx, dataformats='HW')
-            logger.add_image('real', batch[0], global_step=idx, dataformats='HW')
+            logger.add_image('fake', generated[0], global_step=idx)
+            logger.add_image('real', batch[0], global_step=idx)

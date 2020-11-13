@@ -14,11 +14,9 @@ class ImageDataset(Dataset):
 
         pipeline = transforms.Compose([
             transforms.Resize((imageSize, imageSize)),
-            transforms.Grayscale(),
+            transforms.GaussianBlur(5.0, sigma=1.3),
             transforms.ToTensor(),
         ])
-
-        blur = transforms.GaussianBlur(5.0, sigma=1.3)
 
         self.dataset = []
         objects = sorted(list(dataPath.glob('*')))
@@ -37,14 +35,9 @@ class ImageDataset(Dataset):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
-            # image to tensor, and invert (1.0 is white)
-            tens = 1.0 - pipeline(img)
-            # mask the salient portion
-            mask = tens < 1.0
-            tens[mask] = 0.0
-            # gaussian blur to mimic soft shading
-            tens = blur(tens)
-            self.dataset.append(tens.squeeze(0))
+            # image to tensor
+            tens = pipeline(img)[:3, ...]
+            self.dataset.append(tens)
 
     def __len__(self):
         return len(self.dataset)

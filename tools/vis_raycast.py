@@ -26,10 +26,9 @@ hp = HParams(imageSize=128)
 
 frustum = Frustum(2.0 * np.pi / 3.0, hp.imageSize, device=None)
 gen = Generator(SDFNetwork(hp), frustum, hp)
-# out = gen.raycast(latents, phis, thetas)
-out = gen.sample(1)
+out = gen.raycast(latents, phis, thetas)
 
-obj1 = 1.0 - out[0].detach().numpy()
+obj1 = out[0].permute(1, 2, 0).detach().numpy()
 
-plt.imshow(obj1, cmap='binary')
+plt.imshow(obj1)
 plt.show()

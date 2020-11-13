@@ -5,7 +5,7 @@ def searchRays(latents, targets, sdf, epsilon):
     # targets has shape [batch, rays, samples, 3]
     # latents has shape [batch, latentSize]
     # evaluate SDF
-    values = sdf(targets.view(-1, 3), latents).view(*targets.shape[:3])
+    values = sdf(targets.view(-1, 3), latents, geometryOnly=True).view(*targets.shape[:3])
 
     # find the minimum sampled value over each ray
     # epsilon is the minimum depth that is considered an intersection
@@ -25,15 +25,26 @@ def fastRayIntegral(latents, targets, sdf, epsilon):
     critPoints.requires_grad = True
 
     # now, with gradient, sample the useful points
-    out = sdf(critPoints, latents).view(*targets.shape[:2])
+    # values, texture = sdf(critPoints, latents).view(*targets.shape[:2])
+    values, texture = sdf(critPoints, latents)
+
     # compute the normals at each point
-    normals = torch.autograd.grad(outputs=out,
+    normals = torch.autograd.grad(outputs=values,
                                   inputs=critPoints,
-                                  grad_outputs=torch.ones(out.shape, device=device),
+                                  grad_outputs=torch.ones(values.shape, device=device),
                                   create_graph=True,
                                   retain_graph=True,
                                   only_inputs=True)[0]
-    return out, normals
+    return values, texture, normals
 
 def shadeUniform(values, k=40.0, j=15.0):
     return 1.0 / (1.0 + j * torch.exp(-k * values))
+
+def shade(values, texture, normals):
+    # shade only the points that intersect the surface with the sampled color
+    result = torch.zeros(normals.shape, device=values.device)
+    hits = values.squeeze(1) < 0.0
+    notHits = ~hits
+    result[hits] = texture[hits]
+    result[notHits] = texture[notHits] * torch.exp(-10.0 * values[notHits])
+    return result
