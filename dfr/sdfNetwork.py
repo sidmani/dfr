@@ -16,7 +16,7 @@ class SDFNetwork(nn.Module):
             # skip connection from input: latent + x (into 5th layer)
             nn.Linear(width, width),
             nn.Linear(width, width),
-            # branch here
+            # branch here for texture
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
@@ -28,6 +28,9 @@ class SDFNetwork(nn.Module):
 
         # SAL geometric initialization
         geometricInit(self.sdfLayers)
+
+        for layer in self.textureLayers:
+            nn.init.normal_(layer.weight)
 
         self.hparams = hparams
         if hparams.weightNorm:

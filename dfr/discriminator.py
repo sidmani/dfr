@@ -6,6 +6,7 @@ class Discriminator(nn.Module):
         super().__init__()
         # DC-GAN discriminator architecture
         # batch norm omitted per WGAN-GP
+        # bias=False is only used with batch norm
         self.layers = nn.ModuleList([
             nn.Conv2d(channels, fmapSize, 4, 2, 1),
             nn.Conv2d(fmapSize, fmapSize * 2, 4, 2, 1),
@@ -14,7 +15,7 @@ class Discriminator(nn.Module):
             nn.Conv2d(fmapSize * 8, 1, 4, 1, 0)
         ])
 
-        # weight init
+        # weight init, according to DC-GAN
         for layer in self.layers:
             nn.init.normal_(layer.weight.data, 0.0, 0.02)
 
