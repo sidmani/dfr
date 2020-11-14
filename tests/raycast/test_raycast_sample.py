@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from dfr.raycast.sample import sampleRandom, sampleUniform, sampleStratified, scaleRays
+from dfr.raycast.sample import sampleRandom, sampleUniform, sampleStratified
 
 def test_sampleUniform():
     near = torch.zeros(4, 4)
@@ -35,13 +35,3 @@ def test_sampleStratified():
             for i in range(5):
                 x = samples[j, k, i]
                 assert float(i * 0.8) < x < float((i + 1) * 0.8)
-
-def test_scaleRays_simple():
-    rays = torch.ones(2, 5, 3)
-    samples = torch.linspace(0.0, 1.0, 7).repeat(2, 5, 1)
-    assert samples.shape == (2, 5, 7)
-
-    scaledRays = scaleRays(rays, samples, torch.ones(2, 3))
-    obj1 = scaledRays[0]
-    ray1 = obj1[0]
-    assert torch.equal(ray1, torch.linspace(0.0, 1.0, 7).repeat(3, 1).transpose(0, 1) + 1.0)

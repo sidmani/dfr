@@ -35,7 +35,7 @@ class ImageDataset(Dataset):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
-            # image to tensor
+            # image to tensor; take RGB from RGBA
             tens = pipeline(img)[:3, ...]
             self.dataset.append(tens)
 

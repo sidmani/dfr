@@ -23,11 +23,5 @@ def sampleStratified(near, far, count):
     rand = torch.rand(count, *near.shape, device=device) / (n - 1)
     return ((far - near) * (divs + rand) * (n - 1) / n + near).permute(1, 2, 0)
 
-def scaleRays(rays, samples, cameraLoc):
-    # output has shape [batch, selected #, sample count, 3]
-    selectedRays = rays.unsqueeze(2).repeat(1, 1, samples.shape[2], 1)
-    # [batch, selected #, sample count, 1]
-    selectedSamples = samples.unsqueeze(3)
-
-    # sum camera loc with scaled rays to compute sample points
-    return cameraLoc.view(-1, 1, 1, 3) + selectedRays * selectedSamples
+# TODO: weighted sampling based on ray length
+# Stack all rays & sample uniformly, then unstack (like trimesh area-weighted scheme)

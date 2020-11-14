@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from dfr.raycast.shader import searchRays
+from dfr.raycast.ray import findIntersection
 
 # signed-distance function for the unit sphere
-def MockSDF(pts, latents):
-    return torch.norm(pts, dim=1) - 1.0
+def MockSDF(pts):
+    return torch.norm(pts[:, :3], dim=1) - 1.0
 
-def test_searchRays_1_ray():
+def test_findIntersection_1_ray():
     batch = 2
     latents = torch.zeros(batch, 256)
     targets = torch.tensor([
@@ -17,12 +17,12 @@ def test_searchRays_1_ray():
         [0.0, 0.0, 2.0],
         ]).repeat(batch, 1, 1).unsqueeze(1)
     assert targets.shape == (2, 1, 5, 3)
-    out = searchRays(latents, targets, MockSDF, 10e-8)
+    out = findIntersection(latents, targets, MockSDF, 10e-8)
 
     assert out.shape == (batch, 1, 3)
     assert torch.equal(out[0, 0, :], torch.tensor([0.0, 0.0, -0.9]))
 
-def test_searchRays_many_rays():
+def test_findIntersection_many_rays():
     batch = 2
     latents = torch.zeros(batch, 256)
     targets = torch.tensor([
@@ -33,7 +33,7 @@ def test_searchRays_many_rays():
         [0.0, 0.0, 2.0],
         ]).repeat(batch, 7, 1, 1)
     assert targets.shape == (2, 7, 5, 3)
-    out = searchRays(latents, targets, MockSDF, 10e-8)
+    out = findIntersection(latents, targets, MockSDF, 10e-8)
 
     assert out.shape == (batch, 7, 3)
     assert torch.equal(out[0, 0, :], torch.tensor([0.0, 0.0, -0.9]))

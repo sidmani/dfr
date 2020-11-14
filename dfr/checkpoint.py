@@ -24,7 +24,7 @@ HParams = namedtuple('HParams', [
         True,
         3,
         256,
-        2.0 * np.pi / 3.0,
+        0.87, # ~ 50 deg FOV
         64,
         0.5,
     ])

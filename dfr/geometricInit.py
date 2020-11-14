@@ -2,13 +2,12 @@ import torch.nn as nn
 import numpy as np
 
 # geometric initialization (SAL section 4)
-def geometricInit(layers, r=0.5, dropout=0.0):
+def geometricInit(layers, r=0.5):
     # initialize first 7 layers according to thm 1, section 4, SAL
     # note that the skip connection dimension is handled properly
-    ps = [1.0 - dropout] * (len(layers) - 2) + [1.0]
-    for layer, p in zip(layers[:-1], ps):
+    for layer in layers[:-1]:
         outDim = float(layer.out_features)
-        nn.init.normal_(layer.weight, 0.0, np.sqrt(2) / np.sqrt(outDim * p))
+        nn.init.normal_(layer.weight, 0.0, np.sqrt(2) / np.sqrt(outDim))
         nn.init.constant_(layer.bias, 0.0)
 
     # initialize 8th layer according to part 2 of same thm

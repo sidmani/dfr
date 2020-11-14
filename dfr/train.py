@@ -25,7 +25,7 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
 
         # update the generator every nth iteration
         if idx % hparams.discIter == 0:
-            stepGenerator(generated, normals, dis, genOpt, hparams.eikonalFactor)
+            genLoss, eikonalLoss = stepGenerator(generated, normals, dis, genOpt, hparams.eikonalFactor)
 
         # update the discriminator
         disReal, disFake = stepDiscriminator(generated, batch, dis, disOpt)
@@ -33,10 +33,11 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
         # log loss every iteration
         logger.add_scalar('discriminator/fake', disFake, global_step=idx)
         logger.add_scalar('discriminator/real', disReal, global_step=idx)
+        logger.add_scalar('generator/total', genLoss, global_step=idx)
+        logger.add_scalar('generator/eikonal', eikonalLoss, global_step=idx)
 
         # save every 10 iterations, except idx 0
         if idx % 10 == 0 and idx != startEpoch:
             saveModel(gen, dis, genOpt, disOpt, hparams, version=version, epoch=idx, overwrite=True)
             logger.add_images('fake', generated, global_step=idx)
-            # logger.add_image('fake', generated[0], global_step=idx)
             logger.add_image('real', batch[0], global_step=idx)
