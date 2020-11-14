@@ -5,7 +5,7 @@ from .frustum import sphereToRect
 def raycast(phis, thetas, latents, frustum, sdf, texture, raySamples):
     device = phis.device
 
-    # autograd isn't needed; no backprop to the camera position
+    # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
         targets = sampleRays(phis, thetas, frustum, raySamples)
         critPoints = findIntersection(latents, targets, sdf).view(-1, 3)
@@ -44,9 +44,9 @@ def shade(values, texture, normals, fuzz=15.0):
     # shade only the points that intersect the surface with the sampled color
     # result = texture * lightFactor
     result = torch.empty(texture.shape, device=values.device)
-    hits = values <= 0.0
+    hits = values.squeeze() <= 0.0
     notHits = ~hits
 
     result[hits] = texture[hits]
-    result[notHits] = texture[notHits] * torch.exp(-fuzz * values[notHits]).unsqueeze(1)
+    result[notHits] = texture[notHits] * torch.exp(-fuzz * values[notHits])
     return result

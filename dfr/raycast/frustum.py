@@ -11,7 +11,6 @@ def sphereToRect(phi, theta, r):
 
 class Frustum:
     def __init__(self, fov, px, device):
-
         # the location where the unit sphere would fill the fov
         self.cameraD = 1.0 / np.sin(fov / 2.0)
         self.imageSize = px

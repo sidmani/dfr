@@ -20,6 +20,9 @@ class TextureNetwork(nn.Module):
 
         self.activation = nn.ReLU()
 
+        for layer in self.layers:
+            nn.init.normal_(layer.weight, 0.0, 1e-1)
+
         if hparams.weightNorm:
             for i in range(8):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
