@@ -49,7 +49,7 @@ def raycast(phis,
     hitMask = values.squeeze(2) <= 0.0
 
     # create composite mask: select rays that hit unit sphere and object
-    mask = torch.zeros(*result.shape[:3], dtype=torch.bool)
+    mask = torch.zeros(*result.shape[:3], dtype=torch.bool, device=device)
     mask[:, frustum.mask] = hitMask
 
     # apply the sampled texture to the hit points
