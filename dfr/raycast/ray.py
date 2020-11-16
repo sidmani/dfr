@@ -52,7 +52,7 @@ def sampleRays(phis, thetas, frustum, sampleCount, scheme=sampleStratified):
     samples = scheme(frustum.near, frustum.far, sampleCount).unsqueeze(0)
 
     # compute the sampling points for each ray that intersects the unit sphere
-    return distributeSamples(rays[:, frustum.mask], samples[:, frustum.mask], cameraLoc)
+    return distributeSamples(rays[:, frustum.mask], samples[:, frustum.mask], cameraLoc), cameraLoc
 
 # DFR section 3.5 (ray integral)
 # search along each ray for the first intersection or closest point
