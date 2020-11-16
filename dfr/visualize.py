@@ -9,6 +9,7 @@ from .generator import Generator
 from .sdfNetwork import SDFNetwork
 from .raycast.frustum import Frustum
 import re
+from .checkpoint import loadModel
 
 def main(args):
     if args.epoch:
@@ -31,13 +32,11 @@ def main(args):
 
     checkpoint = torch.load(checkpointPath / f"e{epoch}.pt", map_location=torch.device('cpu'))
     version = int(args.ckpt)
+    models, _, _, _ = loadModel(checkpoint, device=None)
+    gen, dis = models
+    hp = checkpoint['hparams']
     print(f"Loaded version {version}, epoch {checkpoint['epoch']}.")
 
-    hp = checkpoint['hparams']
-    frustum = Frustum(2 * np.pi / 3, 128, device=None)
-    sdf = SDFNetwork(hp)
-    gen = Generator(sdf, frustum, hp)
-    gen.load_state_dict(checkpoint['gen'])
     res = int(args.res)
 
     with torch.no_grad():
@@ -53,11 +52,14 @@ def main(args):
 
         latent = torch.normal(
                 mean=0.0,
-                std=1e-2,
+                std=1e-1,
                 size=(1, hp.latentSize))
+        latent = latent.expand(grid.shape[0], -1)
+        x = torch.cat([grid, latent], dim=1)
 
         # create input vector and compute values
-        out, normals = gen.sdf(grid, latent)
+        # out, normals = gen.sdf(grid, latent)
+        out = gen.sdf(x)
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
         cubic = torch.reshape(out, (res, res, res)).detach().numpy()

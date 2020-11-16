@@ -63,4 +63,4 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     disLoss.backward()
     disOpt.step()
     disOpt.zero_grad(set_to_none=True)
-    return disReal, disFake
+    return disReal, disFake, disLoss
