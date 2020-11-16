@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from .raycast import raycast, shade
+from .raycast import raycast
 
 class Generator(nn.Module):
     def __init__(self, sdf, texture, frustum, hparams):
