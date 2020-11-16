@@ -10,6 +10,10 @@ def gradientPenalty(dis, real, fake):
     epsilon = torch.rand(real.shape[0], 1, 1, 1, device=device)
     interp = epsilon * real + (1.0 - epsilon) * fake
     outputs = dis(interp)
+
+    # original grad calculation was wrong; see:
+    # https://stackoverflow.com/questions/53413706/large-wgan-gp-train-loss
+    # grad has shape [batch, channels, px, px]
     grad = torch.autograd.grad(outputs=outputs,
                                inputs=interp,
                                grad_outputs=torch.ones(outputs.shape, device=device),
@@ -17,7 +21,10 @@ def gradientPenalty(dis, real, fake):
                                retain_graph=True,
                                only_inputs=True)[0]
 
-    return ((grad.norm(dim=1) - 1.0) ** 2.0).mean()
+    # square; sum over pixel & channel dims; sqrt
+    # shape [batch]; each element is the norm of a whole image
+    gradNorm = (grad ** 2).sum(dim=[1, 2, 3]).sqrt()
+    return ((gradNorm - 1.0) ** 2.0).mean()
 
 def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
     # the eikonal loss encourages the sdf to have unit gradient

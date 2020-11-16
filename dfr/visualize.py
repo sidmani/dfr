@@ -52,7 +52,7 @@ def main(args):
 
         latent = torch.normal(
                 mean=0.0,
-                std=1e-1,
+                std=1e-2,
                 size=(1, hp.latentSize))
         latent = latent.expand(grid.shape[0], -1)
         x = torch.cat([grid, latent], dim=1)
