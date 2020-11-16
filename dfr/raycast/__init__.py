@@ -24,10 +24,8 @@ def raycast(phis,
     x = torch.cat([critPoints, expandedLatents], dim=1)
 
     # sample the critical points with autograd enabled
-    values = sdf(x)
-
-    # TODO: only sample texture for hit points
-    textures = texture(x)
+    values = sdf(x).view(batch, -1)
+    textures = texture(x).view(batch, -1, 3)
 
     # compute normals
     normals = torch.autograd.grad(outputs=values,
@@ -43,16 +41,11 @@ def raycast(phis,
     else:
         result = torch.zeros(batch, *frustum.mask.shape, 3, device=device)
 
-    # [batch, # hit sphere, 1]
-    values = values.view(batch, -1, 1)
-    textures = textures.view(batch, -1, 3)
-    hitMask = values.squeeze(2) <= 0.0
-
-    # create composite mask: select rays that hit unit sphere and object
-    mask = torch.zeros(*result.shape[:3], dtype=torch.bool, device=device)
-    mask[:, frustum.mask] = hitMask
+    notHitMask = values > 0.0
+    opacityMask = torch.ones_like(values, device=device)
+    opacityMask[notHitMask] = torch.exp(-15.0 * values[notHitMask])
+    opacityMask = opacityMask.unsqueeze(2)
+    result[:, frustum.mask] = opacityMask * textures + (1.0 - opacityMask) * result[:, frustum.mask]
 
     # apply the sampled texture to the hit points
-    result[mask] = textures[hitMask]
-
     return result.permute(0, 3, 1, 2), normals
