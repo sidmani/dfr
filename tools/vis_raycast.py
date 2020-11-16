@@ -23,20 +23,23 @@ class MockTexture:
     def __call__(self, x):
         return (x[:, :3] / 2.0) + torch.tensor([0.5, 0.5, 0.5]).view(1, 3)
 
-phis = torch.tensor([np.pi/2])
-thetas = torch.tensor([np.pi/4])
-latents = torch.zeros(1, 256)
-hp = HParams(imageSize=128)
-frustum = Frustum(0.87, hp.imageSize, device=None)
-sdf = MockSDFCube()
-texture = MockTexture()
-# sdf = SDFNetwork(hp)
-# texture = TextureNetwork(hp)
+phis = torch.tensor([0.0, 0.0])
+thetas = torch.tensor([0.0, 0.0])
+hp = HParams(imageSize=64, weightNorm=False)
+latents = torch.normal(mean=0.0, std=1e-2, size=(2, hp.latentSize))
+frustum = Frustum(hp.fov, hp.imageSize, device=None)
+# sdf = MockSDFCube()
+# texture = MockTexture()
+sdf = SDFNetwork(hp)
+texture = TextureNetwork(hp)
 
 out, normals = raycast(phis, thetas, latents, frustum, sdf, texture, hp.raySamples)
 
 obj1 = out[0].permute(1, 2, 0).detach().numpy()
+obj2 = out[1].permute(1, 2, 0).detach().numpy()
 
-plt.imshow(obj1)
+fig, axs = plt.subplots(1, 2)
+axs[0].imshow(obj1)
+axs[1].imshow(obj2)
 plt.show()
 

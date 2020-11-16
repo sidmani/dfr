@@ -14,7 +14,6 @@ class ImageDataset(Dataset):
 
         pipeline = transforms.Compose([
             transforms.Resize((imageSize, imageSize)),
-            transforms.GaussianBlur(5.0, sigma=1.3),
             transforms.ToTensor(),
         ])
 
@@ -35,15 +34,16 @@ class ImageDataset(Dataset):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
-            # image to tensor; take RGB from RGBA
-            tens = pipeline(img)[:3, ...]
-            self.dataset.append(tens)
+            self.dataset.append(pipeline(img))
 
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        return self.dataset[idx]
+        tens = self.dataset[idx]
+        img, alpha = tens[:3], tens[3:]
+        noise = torch.normal(0.5, 0.1, size=(3, self.imageSize, self.imageSize)).clamp(0.0, 1.0)
+        return img * alpha + (1 - alpha) * noise
 
 # infinite dataloader
 # https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567

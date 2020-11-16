@@ -2,8 +2,16 @@ import torch
 from .ray import sampleRays, findIntersection
 from .frustum import sphereToRect
 
-def raycast(phis, thetas, latents, frustum, sdf, texture, raySamples):
+def raycast(phis,
+            thetas,
+            latents,
+            frustum,
+            sdf,
+            texture,
+            raySamples,
+            bgNoise=True):
     device = phis.device
+    batch = phis.shape[0]
 
     # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
@@ -11,12 +19,14 @@ def raycast(phis, thetas, latents, frustum, sdf, texture, raySamples):
         critPoints = findIntersection(latents, targets, sdf).view(-1, 3)
     critPoints.requires_grad = True
 
-    sampleCount = critPoints.shape[0] // latents.shape[0]
+    sampleCount = critPoints.shape[0] // batch
     expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
     x = torch.cat([critPoints, expandedLatents], dim=1)
 
     # sample the critical points with autograd enabled
     values = sdf(x)
+
+    # TODO: only sample texture for hit points
     textures = texture(x)
 
     # compute normals
@@ -27,26 +37,22 @@ def raycast(phis, thetas, latents, frustum, sdf, texture, raySamples):
                 retain_graph=True,
                 only_inputs=True)[0]
 
-    shaded = shade(values, textures, normals)
+    # background is random noise
+    if bgNoise:
+        result = torch.normal(0.5, 0.1, size=(batch, *frustum.mask.shape, 3), device=device)
+    else:
+        result = torch.zeros(batch, *frustum.mask.shape, 3, device=device)
 
-    result = torch.zeros(phis.shape[0],
-                         frustum.imageSize,
-                         frustum.imageSize,
-                         3,
-                         device=device)
-    result[:, frustum.mask] = shaded.view(result.shape[0], -1, 3)
+    # [batch, # hit sphere, 1]
+    values = values.view(batch, -1, 1)
+    textures = textures.view(batch, -1, 3)
+    hitMask = values.squeeze(2) <= 0.0
+
+    # create composite mask: select rays that hit unit sphere and object
+    mask = torch.zeros(*result.shape[:3], dtype=torch.bool)
+    mask[:, frustum.mask] = hitMask
+
+    # apply the sampled texture to the hit points
+    result[mask] = textures[hitMask]
+
     return result.permute(0, 3, 1, 2), normals
-
-def shade(values, texture, normals, fuzz=15.0):
-    # lightDir = torch.tensor([0.0, 1.0, 0.0]).view(1, 3, 1)
-    # unitNormals = (normals / normals.norm(dim=1).unsqueeze(1)).view(-1, 1, 3)
-    # lightFactor = torch.matmul(unitNormals, lightDir).squeeze(1)
-    # shade only the points that intersect the surface with the sampled color
-    # result = texture * lightFactor
-    result = torch.empty(texture.shape, device=values.device)
-    hits = values.squeeze() <= 0.0
-    notHits = ~hits
-
-    result[hits] = texture[hits]
-    result[notHits] = texture[notHits] * torch.exp(-fuzz * values[notHits])
-    return result
