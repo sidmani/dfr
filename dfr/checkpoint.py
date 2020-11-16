@@ -2,11 +2,11 @@ import torch
 import numpy as np
 from pathlib import Path
 from torch.optim import Adam
-from torch.optim.lr_scheduler import LambdaLR
 from collections import namedtuple
 from .raycast.frustum import Frustum
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
+from .texture import TextureNetwork
 from .generator import Generator
 
 HParams = namedtuple('HParams', [
@@ -19,14 +19,14 @@ HParams = namedtuple('HParams', [
         'imageSize',
         'eikonalFactor',
     ], defaults=[
-        1e-4,
-        32,
-        True,
-        3,
-        256,
+        1e-4, # learningRate
+        32, # raySamples
+        True, # weightNorm
+        3, # discIter
+        256, # latentSize
         0.87, # ~ 50 deg FOV
-        64,
-        0.5,
+        64, # imageSize
+        0.5, # eikonalFactor
     ])
 
 def saveModel(gen, dis, genOpt, disOpt, hparams, version, epoch, overwrite=True):
@@ -53,17 +53,20 @@ def loadModel(checkpoint, device):
     else:
         hparams = HParams()
         startEpoch = 0
-    dis = Discriminator().to(device)
+
+    dis = Discriminator(hparams).to(device)
 
     # build generator
-    sdf = SDFNetwork(hparams)
     frustum = Frustum(hparams.fov, hparams.imageSize, device)
-    gen = Generator(sdf, frustum, hparams).to(device)
+    sdf = SDFNetwork(hparams)
+    texture = TextureNetwork(hparams)
+    gen = Generator(sdf, texture, frustum, hparams).to(device)
     models = (gen, dis)
 
     # TODO: custom beta value
-    genOpt = Adam(gen.parameters(), hparams.learningRate)
-    disOpt = Adam(dis.parameters(), hparams.learningRate)
+    betas = (0.5, 0.999)
+    genOpt = Adam(gen.parameters(), hparams.learningRate, betas=betas)
+    disOpt = Adam(dis.parameters(), hparams.learningRate, betas=betas)
     optimizers = (genOpt, disOpt)
 
     # TODO: learning rate schedule

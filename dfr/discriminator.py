@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self, channels=3, fmapSize=64):
+    def __init__(self, hparams, channels=3, fmapSize=64):
         super().__init__()
         # DC-GAN discriminator architecture
         # batch norm omitted per WGAN-GP
@@ -15,6 +15,10 @@ class Discriminator(nn.Module):
             nn.Conv2d(fmapSize * 8, 1, 4, 1, 0)
         ])
 
+        if hparams.weightNorm:
+            for i in range(len(self.layers)):
+                self.layers[i] = nn.utils.weight_norm(self.layers[i])
+
         # weight init, according to DC-GAN
         for layer in self.layers:
             nn.init.normal_(layer.weight.data, 0.0, 0.02)
@@ -24,4 +28,6 @@ class Discriminator(nn.Module):
     def forward(self, x):
         for i in range(4):
             x = self.activation(self.layers[i](x))
-        return torch.sigmoid(self.layers[4](x)).squeeze()
+
+        # output is not a probability, so no sigmoid
+        return self.layers[4](x)

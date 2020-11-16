@@ -12,12 +12,13 @@ class Generator(nn.Module):
         self.hparams = hparams
 
     def forward(self, phis, thetas, latents):
-        values, normals = raycast(
+        return raycast(
                 phis,
                 thetas,
                 latents,
                 self.frustum,
                 self.sdf,
+                self.texture,
                 self.hparams.raySamples)
 
     def sample(self, batchSize, phi=np.pi / 6.0, device=None):
@@ -33,4 +34,4 @@ class Generator(nn.Module):
                 size=(batchSize, self.hparams.latentSize),
                 device=device)
 
-        return self.forward(z, phis, thetas)
+        return self.forward(phis, thetas, z)

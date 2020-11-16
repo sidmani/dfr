@@ -35,7 +35,7 @@ def raycast(phis, thetas, latents, frustum, sdf, texture, raySamples):
                          3,
                          device=device)
     result[:, frustum.mask] = shaded.view(result.shape[0], -1, 3)
-    return result, normals
+    return result.permute(0, 3, 1, 2), normals
 
 def shade(values, texture, normals, fuzz=15.0):
     # lightDir = torch.tensor([0.0, 1.0, 0.0]).view(1, 3, 1)

@@ -24,7 +24,7 @@ class TextureNetwork(nn.Module):
             nn.init.normal_(layer.weight, 0.0, 1e-1)
 
         if hparams.weightNorm:
-            for i in range(8):
+            for i in range(len(self.layers)):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
 
     def forward(self, x):
