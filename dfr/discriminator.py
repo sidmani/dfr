@@ -23,7 +23,7 @@ class Discriminator(nn.Module):
         for layer in self.layers:
             nn.init.normal_(layer.weight.data, 0.0, 0.02)
 
-        self.activation = torch.nn.LeakyReLU()
+        self.activation = torch.nn.LeakyReLU(0.2)
 
     def forward(self, x):
         for i in range(4):

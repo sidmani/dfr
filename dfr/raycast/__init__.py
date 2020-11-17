@@ -52,7 +52,7 @@ def raycast(phis,
 
     notHitMask = values > 0.0
     opacityMask = torch.ones_like(values, device=device)
-    opacityMask[notHitMask] = torch.exp(-15.0 * values[notHitMask])
+    opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     opacityMask = opacityMask.unsqueeze(2)
     result[:, frustum.mask] = opacityMask * illum * textures + (1.0 - opacityMask) * result[:, frustum.mask]
 

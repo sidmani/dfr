@@ -5,22 +5,19 @@ from dfr.sdfNetwork import SDFNetwork
 from dfr.discriminator import Discriminator
 from dfr.generator import Generator
 from dfr.raycast.frustum import Frustum
-from dfr.checkpoint import HParams
+from dfr.checkpoint import HParams, loadModel
 
 def test_stepGenerator():
-    hp = HParams()
-    sdf = SDFNetwork(hp)
-    dis = Discriminator()
-    frustum = Frustum(hp.fov, hp.imageSize, device=None)
-    gen = Generator(sdf, frustum, hp)
-    genOpt = Adam(gen.parameters(), hp.learningRate)
+    models, optim, hp, _ = loadModel(None, None)
+    gen, dis = models
+    genOpt, _ = optim
 
     batch = torch.ones(4, hp.imageSize, hp.imageSize)
-    fake = gen.sample(batch.shape[0])
+    fake, normals = gen.sample(batch.shape[0])
 
     oldGenParam = next(gen.parameters()).clone()
     oldDisParam = next(dis.parameters()).clone()
-    stepGenerator(fake, dis, genOpt)
+    stepGenerator(fake, normals, dis, genOpt, 0.1)
     newGenParam = next(gen.parameters()).clone()
     newDisParam = next(dis.parameters()).clone()
 
@@ -30,17 +27,14 @@ def test_stepGenerator():
     assert next(dis.parameters()).grad is None
 
 def test_stepDiscriminator():
-    hp = HParams()
-    sdf = SDFNetwork(hp)
-    dis = Discriminator()
-    frustum = Frustum(hp.fov, hp.imageSize, device=None)
-    gen = Generator(sdf, frustum, hp)
-    disOpt = Adam(dis.parameters(), hp.learningRate)
+    models, optim, hp, _ = loadModel(None, None)
+    gen, dis = models
+    _, disOpt = optim
 
     assert next(gen.parameters()).grad is None
 
-    batch = torch.ones(4, hp.imageSize, hp.imageSize)
-    fake = gen.sample(batch.shape[0])
+    batch = torch.ones(4, 3, hp.imageSize, hp.imageSize)
+    fake, normals = gen.sample(batch.shape[0])
 
     oldGenParam = next(gen.parameters()).clone()
     oldDisParam = next(dis.parameters()).clone()
