@@ -24,13 +24,15 @@ class Generator(nn.Module):
     def sample(self, batchSize, phi=np.pi / 6.0, device=None):
         # elevation angle: phi = pi/6
         phis = torch.ones(batchSize, device=device) * phi
-        # azimuthal angle: 0 <= theta < 2pi
+        # azimuthal angle: uniform 0 <= theta < 2pi
         thetas = torch.rand(batchSize, device=device) * (2.0 * np.pi)
-        # latents with mean 0, sigma 1e-4 (per SALD)
-        # DFR uses sigma=sqrt(0.33), but that's a different architecture (OccNet)
+        # latents with mean 0, stddev >0.3
+        # DFR uses sigma=sqrt(0.33)
+        # SALD/DeepSDF use much smaller stddev, but the latent space is optimized in those models
+        # empirically need at least 0.1
         z = torch.normal(
                 mean=0.0,
-                std=1e-2,
+                std=self.hparams.latentStd,
                 size=(batchSize, self.hparams.latentSize),
                 device=device)
 
