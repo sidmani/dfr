@@ -4,10 +4,9 @@ import numpy as np
 from .raycast import raycast
 
 class Generator(nn.Module):
-    def __init__(self, sdf, texture, frustum, hparams):
+    def __init__(self, sdf, frustum, hparams):
         super().__init__()
         self.sdf = sdf
-        self.texture = texture
         self.frustum = frustum
         self.hparams = hparams
 
@@ -18,7 +17,6 @@ class Generator(nn.Module):
                 latents,
                 self.frustum,
                 self.sdf,
-                self.texture,
                 self.hparams.raySamples)
 
     def sample(self, batchSize, phi=np.pi / 6.0, device=None):

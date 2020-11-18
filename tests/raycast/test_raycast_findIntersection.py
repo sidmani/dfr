@@ -3,7 +3,7 @@ import torch
 from dfr.raycast.ray import findIntersection
 
 # signed-distance function for the unit sphere
-def MockSDF(pts):
+def MockSDF(pts, geomOnly=False):
     return torch.norm(pts[:, :3], dim=1) - 1.0
 
 def test_findIntersection_1_ray():

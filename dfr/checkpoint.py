@@ -6,7 +6,6 @@ from collections import namedtuple
 from .raycast.frustum import Frustum
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
-from .texture import TextureNetwork
 from .generator import Generator
 
 HParams = namedtuple('HParams', [
@@ -61,8 +60,7 @@ def loadModel(checkpoint, device):
     # build generator
     frustum = Frustum(hparams.fov, hparams.imageSize, device)
     sdf = SDFNetwork(hparams)
-    texture = TextureNetwork(hparams)
-    gen = Generator(sdf, texture, frustum, hparams).to(device)
+    gen = Generator(sdf, frustum, hparams).to(device)
     models = (gen, dis)
 
     # TODO: custom beta value

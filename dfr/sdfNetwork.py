@@ -16,21 +16,27 @@ class SDFNetwork(nn.Module):
             # skip connection from input: latent + x (into 5th layer)
             nn.Linear(width, width),
             nn.Linear(width, width),
+        ])
+
+        self.sdfLayers = nn.ModuleList([
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
 
-        geometricInit(self.layers)
+        self.txLayers = nn.ModuleList([
+            nn.Linear(width, width),
+            nn.Linear(width, 3),
+        ])
 
         self.hparams = hparams
         if hparams.weightNorm:
-            for i in range(8):
+            for i in range(6):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
 
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    def forward(self, x):
+    def forward(self, x, geomOnly=False):
         r = x
         # TODO: layer idx 1 can be split into separate matrices and cached
         for i in range(4):
@@ -38,7 +44,21 @@ class SDFNetwork(nn.Module):
 
         # skip connection
         # per SAL supplementary: divide by sqrt(2) to normalize
-        r = torch.cat([x, r], dim=1) / np.sqrt(2)
-        for i in range(3):
+        # r = torch.cat([x, r], dim=1) / np.sqrt(2)
+        r = torch.cat([x, r], dim=1)
+        for i in range(2):
             r = self.activation(self.layers[i + 4](r))
-        return torch.tanh(self.layers[7](r))
+
+        # sdf portion
+        sdf = self.activation(self.sdfLayers[0](r))
+        sdf = torch.tanh(self.sdfLayers[1](sdf))
+
+        if geomOnly:
+            return sdf
+
+        # texture portion
+        tx = self.activation(self.txLayers[0](r))
+        tx = torch.sigmoid(self.txLayers[1](r))
+
+        return sdf, tx
+

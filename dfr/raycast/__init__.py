@@ -7,7 +7,6 @@ def raycast(phis,
             latents,
             frustum,
             sdf,
-            texture,
             raySamples,
             bgNoise=True):
     device = phis.device
@@ -25,8 +24,9 @@ def raycast(phis,
     x = torch.cat([critPoints, expandedLatents], dim=1)
 
     # sample the critical points with autograd enabled
-    values = sdf(x).view(batch, -1)
-    textures = texture(x).view(batch, -1, 3)
+    values, textures = sdf(x)
+    values = values.view(batch, -1)
+    textures = textures.view(batch, -1, 3)
 
     # compute normals
     normals = torch.autograd.grad(outputs=values,

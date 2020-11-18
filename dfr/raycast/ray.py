@@ -63,7 +63,7 @@ def findIntersection(latents, targets, sdf, epsilon=1e-10):
     sampleCount = targets.shape[1] * targets.shape[2]
     expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
     x = torch.cat([targets.view(-1, 3), expandedLatents], dim=1)
-    values = sdf(x).view(*targets.shape[:3])
+    values = sdf(x, geomOnly=True).view(*targets.shape[:3])
 
     # find the minimum sampled value over each ray
     # epsilon is the minimum depth that is considered an intersection
