@@ -18,6 +18,7 @@ HParams = namedtuple('HParams', [
         'fov',
         'imageSize',
         'eikonalFactor',
+        'positional',
     ], defaults=[
         1e-4, # learningRate
         32, # raySamples
@@ -28,6 +29,7 @@ HParams = namedtuple('HParams', [
         0.5, # ~ 30 deg FOV
         64, # imageSize
         2.5, # eikonalFactor (TODO: is this big enough?)
+        6,
     ])
 
 def saveModel(gen, dis, genOpt, disOpt, hparams, version, epoch, overwrite=True):

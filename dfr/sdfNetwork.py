@@ -1,19 +1,19 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from .geometricInit import geometricInit
+from .positional import positional
 
 class SDFNetwork(nn.Module):
     def __init__(self, hparams, width=512):
         super().__init__()
-        assert width > hparams.latentSize + 3
+        inputSize = hparams.latentSize + 3 * hparams.positional * 2
 
         self.layers = nn.ModuleList([
-            nn.Linear(hparams.latentSize + 3, width),
+            nn.Linear(inputSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
-            nn.Linear(width, width - (hparams.latentSize + 3)),
-            # skip connection from input: latent + x (into 5th layer)
+            nn.Linear(width, width - inputSize),
+            # skip connection from input into 5th layer
             nn.Linear(width, width),
             nn.Linear(width, width),
         ])
@@ -30,22 +30,31 @@ class SDFNetwork(nn.Module):
 
         self.hparams = hparams
         if hparams.weightNorm:
-            for i in range(6):
+            for i in range(len(self.layers)):
                 self.layers[i] = nn.utils.weight_norm(self.layers[i])
+
+            for i in range(len(self.sdfLayers)):
+                self.sdfLayers[i] = nn.utils.weight_norm(self.sdfLayers[i])
+
+            for i in range(len(self.txLayers)):
+                self.txLayers[i] = nn.utils.weight_norm(self.txLayers[i])
 
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    def forward(self, x, geomOnly=False):
-        r = x
+    def forward(self, pts, latents, geomOnly=False):
+        sampleCount = pts.shape[0] // latents.shape[0]
+        expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
+
+        inp = torch.cat([positional(pts, self.hparams.positional), expandedLatents],
+                         dim=1)
+        r = inp
         # TODO: layer idx 1 can be split into separate matrices and cached
         for i in range(4):
             r = self.activation(self.layers[i](r))
 
         # skip connection
-        # per SAL supplementary: divide by sqrt(2) to normalize
-        # r = torch.cat([x, r], dim=1) / np.sqrt(2)
-        r = torch.cat([x, r], dim=1)
+        r = torch.cat([inp, r], dim=1)
         for i in range(2):
             r = self.activation(self.layers[i + 4](r))
 

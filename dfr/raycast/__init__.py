@@ -19,12 +19,8 @@ def raycast(phis,
     critPoints.requires_grad = True
     cameraLoc.requires_grad = True
 
-    sampleCount = critPoints.shape[0] // batch
-    expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
-    x = torch.cat([critPoints, expandedLatents], dim=1)
-
     # sample the critical points with autograd enabled
-    values, textures = sdf(x)
+    values, textures = sdf(critPoints, latents)
     values = values.view(batch, -1)
     textures = textures.view(batch, -1, 3)
 
