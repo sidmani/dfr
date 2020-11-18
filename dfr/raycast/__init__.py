@@ -23,6 +23,8 @@ def raycast(phis,
     values, textures = sdf(critPoints, latents)
     values = values.view(batch, -1)
     textures = textures.view(batch, -1, 3)
+    hitMask = values <= 0.0
+    notHitMask = ~hitMask
 
     # compute normals
     normals = torch.autograd.grad(outputs=values,
@@ -39,6 +41,7 @@ def raycast(phis,
 
     # scale dot product from [-1, 1] to [0, 1]
     illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(batch, 1, 3, 1)).view(batch, -1, 1) + 1.0) / 2.0
+    illum[notHitMask] = 1.0
 
     # background is random noise
     if bgNoise:
@@ -47,7 +50,6 @@ def raycast(phis,
         result = torch.zeros(batch, *frustum.mask.shape, 3, device=device)
 
     # TODO: check if soft shading makes a difference
-    notHitMask = values > 0.0
     opacityMask = torch.ones_like(values, device=device)
     opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     opacityMask = opacityMask.unsqueeze(2)
