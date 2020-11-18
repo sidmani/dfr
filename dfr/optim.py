@@ -23,7 +23,7 @@ def gradientPenalty(dis, real, fake):
 
     # square; sum over pixel & channel dims; sqrt
     # shape [batch]; each element is the norm of a whole image
-    gradNorm = (grad ** 2).sum(dim=[1, 2, 3]).sqrt()
+    gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
     return ((gradNorm - 1.0) ** 2.0).mean()
 
 def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
@@ -61,8 +61,10 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     # detach() sets requires_grad=False, so reset it to True
     # need to clone so that in-place ops in CNN are legal
     fake = fake.detach().clone().requires_grad_()
+
     # compute the WGAN-gp gradient penalty
     penalty = gradientPenalty(dis, real, fake)
+
     disFake = dis(fake).mean()
     disReal = dis(real).mean()
     disLoss = disFake - disReal + penalty * penaltyWeight

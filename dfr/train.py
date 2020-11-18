@@ -29,7 +29,6 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
             logger.add_scalar('generator/total', genLoss, global_step=idx)
             logger.add_scalar('generator/eikonal', eikonalLoss, global_step=idx)
 
-
         # update the discriminator
         disReal, disFake, disTotal = stepDiscriminator(generated, batch, dis, disOpt)
 

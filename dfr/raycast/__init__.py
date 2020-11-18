@@ -36,13 +36,13 @@ def raycast(phis,
                 retain_graph=True,
                 only_inputs=True)[0]
 
-    unitNormals = normals / normals.norm(dim=1).unsqueeze(1)
+    # unitNormals = normals / normals.norm(dim=1).unsqueeze(1)
 
     # light is directed from camera
-    light = cameraLoc / frustum.cameraD
+    # light = cameraLoc / frustum.cameraD
 
     # scale dot product from [-1, 1] to [0, 1]
-    illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(batch, 1, 3, 1)).view(batch, -1, 1) + 1.0) / 2.0
+    # illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(batch, 1, 3, 1)).view(batch, -1, 1) + 1.0) / 2.0
 
     # background is random noise
     if bgNoise:
@@ -54,7 +54,7 @@ def raycast(phis,
     opacityMask = torch.ones_like(values, device=device)
     opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     opacityMask = opacityMask.unsqueeze(2)
-    result[:, frustum.mask] = opacityMask * illum * textures + (1.0 - opacityMask) * result[:, frustum.mask]
+    result[:, frustum.mask] = opacityMask * textures + (1.0 - opacityMask) * result[:, frustum.mask]
 
     # apply the sampled texture to the hit points
     return result.permute(0, 3, 1, 2), normals

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from .geometricInit import geometricInit
 
 class SDFNetwork(nn.Module):
     def __init__(self, hparams, width=512):
@@ -18,6 +19,8 @@ class SDFNetwork(nn.Module):
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
+
+        geometricInit(self.layers)
 
         self.hparams = hparams
         if hparams.weightNorm:

@@ -12,18 +12,19 @@ class Discriminator(nn.Module):
             nn.Conv2d(fmapSize, fmapSize * 2, 4, 2, 1),
             nn.Conv2d(fmapSize * 2, fmapSize * 4, 4, 2, 1),
             nn.Conv2d(fmapSize * 4, fmapSize * 8, 4, 2, 1),
-            nn.Conv2d(fmapSize * 8, 1, 4, 1, 0)
+            nn.Conv2d(fmapSize * 8, 1, 4, 2, 0)
         ])
 
-        if hparams.weightNorm:
-            for i in range(len(self.layers)):
-                self.layers[i] = nn.utils.weight_norm(self.layers[i])
+        # TODO: probably don't do this
+        # if hparams.weightNorm:
+        #     for i in range(len(self.layers)):
+        #         self.layers[i] = nn.utils.weight_norm(self.layers[i])
 
         # weight init, according to DC-GAN
         for layer in self.layers:
             nn.init.normal_(layer.weight.data, 0.0, 0.02)
 
-        self.activation = torch.nn.LeakyReLU(0.2)
+        self.activation = torch.nn.LeakyReLU()
 
     def forward(self, x):
         for i in range(4):
