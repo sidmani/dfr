@@ -14,7 +14,7 @@ class ImageDataset(Dataset):
 
         pipeline = transforms.Compose([
             transforms.Resize((imageSize, imageSize)),
-            transforms.GaussianBlur(5.0, sigma=1.3),
+            # transforms.GaussianBlur(5.0, sigma=1.3),
             transforms.ToTensor(),
         ])
 

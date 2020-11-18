@@ -52,12 +52,12 @@ def main(args):
 
         latent = torch.normal(
                 mean=0.0,
-                std=1e-2,
+                std=hp.latentStd,
                 size=(1, hp.latentSize))
 
         # create input vector and compute values
         # out, normals = gen.sdf(grid, latent)
-        out = gen.sdf(x, latent, geomOnly=True)
+        out = gen.sdf(grid, latent, geomOnly=True)
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
         cubic = torch.reshape(out, (res, res, res)).detach().numpy()
