@@ -44,12 +44,12 @@ def raycast(phis,
     illum[notHitMask] = 1.0
 
     result = torch.zeros(batch, 4, *frustum.mask.shape, device=device)
-    opacityMask = torch.ones(*values.shape, 1, device=device)
-    opacityMask[notHitMask] = 0.0
-    result[:, :3, frustum.mask] = (opacityMask * illum * textures).permute(0, 2, 1)
+    opacityMask = torch.ones(*values.shape, device=device)
+    opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
+    result[:, :3, frustum.mask] = (opacityMask.unsqueeze(2) * illum * textures).permute(0, 2, 1)
 
-    silhouette = torch.ones(*values.shape, device=device)
-    silhouette[notHitMask] = torch.exp(-5.0 * values[notHitMask])
-    result[:, 3, frustum.mask] = silhouette
+    # silhouette = torch.ones(*values.shape, device=device)
+    # silhouette[notHitMask] = torch.exp(-10.0 * values[notHitMask])
+    result[:, 3, frustum.mask] = opacityMask
 
     return result, normals
