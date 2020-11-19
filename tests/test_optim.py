@@ -12,8 +12,7 @@ def test_stepGenerator():
     gen, dis = models
     genOpt, _ = optim
 
-    batch = torch.ones(4, hp.imageSize, hp.imageSize)
-    fake, normals = gen.sample(batch.shape[0])
+    fake, normals = gen.sample(4)
 
     oldGenParam = next(gen.parameters()).clone()
     oldDisParam = next(dis.parameters()).clone()
@@ -33,7 +32,7 @@ def test_stepDiscriminator():
 
     assert next(gen.parameters()).grad is None
 
-    batch = torch.ones(4, 3, hp.imageSize, hp.imageSize)
+    batch = torch.ones(5, 4, hp.imageSize, hp.imageSize)
     fake, normals = gen.sample(batch.shape[0])
 
     oldGenParam = next(gen.parameters()).clone()

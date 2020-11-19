@@ -3,7 +3,7 @@ from .sample import sampleStratified
 from .frustum import sphereToRect
 
 # list the rays given a base frustum and a view angle
-def rotateFrustum(phis, thetas, frustum):
+def rotateFrustum(phis, thetas, frustum, jitter):
     device = phis.device
 
     zeros = torch.zeros(phis.shape[0], device=device)
@@ -27,8 +27,10 @@ def rotateFrustum(phis, thetas, frustum):
         cos_phi * cos_theta,
     ], dim=-1)
 
+    viewField = frustum.jitteredViewField() if jitter else frustum.viewField
+
     # rotate the frustum and view as [batch, px, px, 3] i.e. a ray for each pixel
-    rays = torch.matmul(rotation, frustum.viewField).view(-1, frustum.imageSize, frustum.imageSize, 3)
+    rays = torch.matmul(rotation, viewField).view(-1, frustum.imageSize, frustum.imageSize, 3)
     return rays, cameraLoc
 
 # scale the rays based on the sample distances
@@ -43,7 +45,7 @@ def distributeSamples(rays, samples, cameraLoc):
 
 def sampleRays(phis, thetas, frustum, sampleCount, scheme=sampleStratified):
     # build a rotated frustum for each input angle
-    rays, cameraLoc = rotateFrustum(phis, thetas, frustum)
+    rays, cameraLoc = rotateFrustum(phis, thetas, frustum, jitter=True)
     # cameraLoc = sphereToRect(phis, thetas, frustum.cameraD)
 
     # uniformly sample distances from the camera in the unit sphere

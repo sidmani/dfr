@@ -10,7 +10,7 @@ def test_rotateFrustum_shape():
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays, cameraLoc = rotateFrustum(phis, thetas, f)
+    rays, cameraLoc = rotateFrustum(phis, thetas, f, jitter=False)
     assert rays.shape == (batch_size, px, px, 3)
 
 def test_rotateFrustum_zMatch():
@@ -20,7 +20,7 @@ def test_rotateFrustum_zMatch():
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays, cameraLoc = rotateFrustum(phis, thetas, f)
+    rays, cameraLoc = rotateFrustum(phis, thetas, f, jitter=False)
 
     first = rays[0]
     assert first.shape == (px, px, 3)
@@ -44,7 +44,7 @@ def test_rotateFrustum_signs():
     phis = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     thetas = torch.tensor([0.0, 0.5, 1.0, 1.5, 2.0])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays, cameraLoc = rotateFrustum(phis, thetas, f)
+    rays, cameraLoc = rotateFrustum(phis, thetas, f, jitter=False)
 
     first = rays[0]
     # all z values are negative
@@ -76,7 +76,7 @@ def test_rotateFrustum_signs_theta_pi():
     phis = torch.tensor([0.0])
     thetas = torch.tensor([np.pi])
     f = Frustum(2*np.pi/3, px, device=None)
-    rays, cameraLoc = rotateFrustum(phis, thetas, f)
+    rays, cameraLoc = rotateFrustum(phis, thetas, f, jitter=False)
 
     first = rays[0]
     # all z values are positive
@@ -108,7 +108,7 @@ def test_rotateFrustum_signs_theta_nonzero():
     phis = torch.tensor([0.0])
     thetas = torch.tensor([np.pi / 6])
     f = Frustum(np.pi/3, px, device=None)
-    rays, cameraLoc = rotateFrustum(phis, thetas, f)
+    rays, cameraLoc = rotateFrustum(phis, thetas, f, jitter=False)
 
     first = rays[0]
     # all z values are negative
@@ -124,7 +124,7 @@ def test_rotateFrustum_signs_phi_nonzero():
     phis = torch.tensor([np.pi/6])
     thetas = torch.tensor([0.0])
     f = Frustum(np.pi/3, px, device=None)
-    rays, cameraLoc = rotateFrustum(phis, thetas, f)
+    rays, cameraLoc = rotateFrustum(phis, thetas, f, jitter=False)
 
     first = rays[0]
     # all z values are negative

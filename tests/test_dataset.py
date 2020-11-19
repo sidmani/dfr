@@ -7,4 +7,4 @@ def test_dataset():
     assert len(d) == 2
 
     t = d[0]
-    assert t.shape == (3, 8, 8)
+    assert t.shape == (4, 8, 8)
