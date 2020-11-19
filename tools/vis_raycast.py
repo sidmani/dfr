@@ -12,14 +12,14 @@ class MockSDFSphere:
         return torch.norm(x, dim=1) - 0.75
 
 class MockSDFCube:
-    def __call__(self, x, geomOnly=False):
+    def __call__(self, x, latents, geomOnly=False):
         box = torch.tensor([0.5, 0.5, 0.5])
-        q = torch.abs(x[:, :3]) - box
+        q = torch.abs(x) - box
         sdf = (torch.norm(torch.clamp(q, min=0.0), dim=1)
                 + torch.clamp(torch.max(q[:, 0], torch.max(q[:, 1], q[:, 2])), max=0.0)).unsqueeze(1)
         if geomOnly:
             return sdf
-        tx = (x[:, :3] / 2.0) + torch.tensor([0.5, 0.5, 0.5]).view(1, 3)
+        tx = (x / 2.0) + torch.tensor([0.5, 0.5, 0.5]).view(1, 3)
         return sdf, tx
 
 phis = torch.tensor([0.0, np.pi/4])

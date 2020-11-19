@@ -26,10 +26,14 @@ HParams = namedtuple('HParams', [
         3, # discIter
         256, # latentSize
         0.3, # latent std dev
-        0.5, # ~ 30 deg FOV
+        0.5, # ~30 deg FOV
         64, # imageSize
-        2.5, # eikonalFactor (TODO: is this big enough?)
-        6,
+        # the eikonal factor has a strong influence on whether initial optimization is
+        # done with texture or geometry. Generally we want geometry to be optimized first.
+        # If it's too large (around 2.5), the SDF is hard to edit, so textures are modified instead
+        # Too low (0.1) and the SDF coalesces slowly or not at all
+        1.0, # eikonalFactor
+        6, # positional encoding (# of frequencies)
     ])
 
 def saveModel(gen, dis, genOpt, disOpt, hparams, version, epoch, overwrite=True):
