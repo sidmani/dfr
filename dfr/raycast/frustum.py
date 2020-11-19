@@ -44,9 +44,11 @@ class Frustum:
         self.mask = (self.far - self.near) > 1e-10
 
     def jitteredViewField(self):
+        device = self.near.device
+
         angle = self.fov / float(self.imageSize)
-        jitterTheta = (torch.rand(*self.thetaSpace.shape) - 0.5) * angle
-        jitterPhi = (torch.rand(*self.thetaSpace.shape) - 0.5) * angle
+        jitterTheta = (torch.rand(*self.thetaSpace.shape, device=device) - 0.5) * angle
+        jitterPhi = (torch.rand(*self.thetaSpace.shape, device=device) - 0.5) * angle
 
         newTheta = self.thetaSpace + jitterTheta
         newPhi = self.phiSpace + jitterPhi
