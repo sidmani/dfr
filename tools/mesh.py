@@ -5,11 +5,8 @@ from skimage import measure
 from trimesh import Trimesh, Scene
 from trimesh.viewer.windowed import SceneViewer
 from pathlib import Path
-from .generator import Generator
-from .sdfNetwork import SDFNetwork
-from .raycast.frustum import Frustum
+from dfr.checkpoint import loadModel
 import re
-from .checkpoint import loadModel
 
 def main(args):
     if args.epoch:
