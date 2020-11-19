@@ -39,9 +39,9 @@ def train(batchSize, device, dataPath, dataCount, steps, version, checkpoint=Non
 
         # log every 10 iterations
         if idx % 10 == 0:
-            logger.add_images('fake/collage', generated, global_step=idx)
-            logger.add_image('fake/closeup', generated[0], global_step=idx)
-            logger.add_image('real', batch[0], global_step=idx)
+            logger.add_images('fake/collage', generated[:, :3], global_step=idx)
+            logger.add_image('fake/closeup', generated[0][:3], global_step=idx)
+            logger.add_image('real', batch[0][:3], global_step=idx)
 
         # save every 25 iterations
         if idx % 25 == 0:

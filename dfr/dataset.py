@@ -40,10 +40,11 @@ class ImageDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        tens = self.dataset[idx]
-        img, alpha = tens[:3], tens[3:]
-        noise = torch.normal(0.5, 0.1, size=(3, self.imageSize, self.imageSize)).clamp(0.0, 1.0)
-        return img * alpha + (1 - alpha) * noise
+        return self.dataset[idx]
+        # tens = self.dataset[idx]
+        # img, alpha = tens[:3], tens[3:]
+        # noise = torch.normal(0.5, 0.1, size=(3, self.imageSize, self.imageSize)).clamp(0.0, 1.0)
+        # return img * alpha + (1 - alpha) * noise
 
 # infinite dataloader
 # https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567
