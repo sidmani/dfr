@@ -12,8 +12,13 @@ def main(args):
     if args.epoch:
         epoch = int(args.epoch)
     else:
-        # load the newest checkpoint for given version
-        checkpointPath = Path.cwd() / 'runs' / f"v{args.ckpt}"
+        if args.ckpt.isnumeric():
+            # load the newest checkpoint for given version
+            ckpt = f"v{args.ckpt}"
+        else:
+            ckpt = args.ckpt
+
+        checkpointPath = Path.cwd() / 'runs' / ckpt
         if not checkpointPath.exists:
             raise Exception(f'Version {args.ckpt} does not exist')
 
@@ -28,11 +33,10 @@ def main(args):
         epoch = max(nums)
 
     checkpoint = torch.load(checkpointPath / f"e{epoch}.pt", map_location=torch.device('cpu'))
-    version = int(args.ckpt)
     models, _, _, _ = loadModel(checkpoint, device=None)
     gen, dis = models
     hp = checkpoint['hparams']
-    print(f"Loaded version {version}, epoch {checkpoint['epoch']}.")
+    print(f"Loaded version {args.ckpt}, epoch {checkpoint['epoch']}.")
 
     res = int(args.res)
 
