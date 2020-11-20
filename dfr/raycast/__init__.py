@@ -1,30 +1,29 @@
 import torch
-from .ray import sampleRays, findIntersection
-from .frustum import sphereToRect
+from .ray import iterativeIntersection, rotateFrustum
 
 def raycast(phis,
             thetas,
             latents,
             frustum,
             sdf,
-            raySamples,
-            bgNoise=True):
+            raySamples):
     device = phis.device
     batch = phis.shape[0]
 
     # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
-        targets, cameraLoc = sampleRays(phis, thetas, frustum, raySamples)
-        critPoints = findIntersection(latents, targets, sdf).view(-1, 3)
+        rays, cameraLoc = rotateFrustum(phis, thetas, frustum, jitter=False)
+        critPoints, hitMask = iterativeIntersection(rays, frustum, cameraLoc, latents, sdf, steps=raySamples)
     critPoints.requires_grad = True
     cameraLoc.requires_grad = True
+    notHitMask = ~hitMask
 
     # sample the critical points with autograd enabled
-    values, textures = sdf(critPoints, latents)
+    expandedLatents = torch.repeat_interleave(latents, critPoints.shape[1], dim=0)
+    critPoints = critPoints.view(-1, 3)
+    values, textures = sdf(critPoints, expandedLatents)
     values = values.view(batch, -1)
     textures = textures.view(batch, -1, 3)
-    hitMask = values <= 0.0
-    notHitMask = ~hitMask
 
     # compute normals
     normals = torch.autograd.grad(outputs=values,
@@ -47,9 +46,6 @@ def raycast(phis,
     opacityMask = torch.ones(*values.shape, device=device)
     opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     result[:, :3, frustum.mask] = (opacityMask.unsqueeze(2) * illum * textures).permute(0, 2, 1)
-
-    # silhouette = torch.ones(*values.shape, device=device)
-    # silhouette[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     result[:, 3, frustum.mask] = opacityMask
 
     return result, normals

@@ -42,10 +42,7 @@ class SDFNetwork(nn.Module):
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    def forward(self, pts, latents, geomOnly=False):
-        sampleCount = pts.shape[0] // latents.shape[0]
-        expandedLatents = torch.repeat_interleave(latents, sampleCount, dim=0)
-
+    def forward(self, pts, expandedLatents, geomOnly=False):
         inp = torch.cat([positional(pts, self.hparams.positional), expandedLatents],
                          dim=1)
         r = inp
@@ -70,4 +67,3 @@ class SDFNetwork(nn.Module):
         tx = torch.sigmoid(self.txLayers[1](r))
 
         return sdf, tx
-

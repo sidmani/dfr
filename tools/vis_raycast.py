@@ -30,7 +30,7 @@ frustum = Frustum(hp.fov, hp.imageSize, device=None)
 sdf = MockSDFCube()
 # sdf = SDFNetwork(hp)
 
-out, normals = raycast(phis, thetas, latents, frustum, sdf, hp.raySamples, bgNoise=True)
+out, normals = raycast(phis, thetas, latents, frustum, sdf, hp.raySamples)
 
 obj1 = out[0].permute(1, 2, 0).detach().numpy()
 obj2 = out[1].permute(1, 2, 0).detach().numpy()
