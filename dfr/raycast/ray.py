@@ -3,21 +3,18 @@ from .frustum import sphereToRect
 
 # list the rays given a base frustum and a view angle
 def rotateFrustum(phis, thetas, frustum, jitter):
-    device = phis.device
-
-    zeros = torch.zeros(phis.shape[0], device=device)
+    # cache some stuff that's reused
     cos_theta = torch.cos(thetas)
     sin_theta = torch.sin(thetas)
     cos_phi = torch.cos(phis)
     sin_phi = torch.sin(phis)
-
     cos_phi_sin_theta = cos_phi * sin_theta
     cos_phi_cos_theta = cos_phi * cos_theta
 
     # create a 3D rotation matrix for each phi, theta pair
     rotation = torch.stack([
         torch.stack([cos_theta, -sin_theta * sin_phi, cos_phi_sin_theta]),
-        torch.stack([zeros, cos_phi, sin_phi]),
+        torch.stack([torch.zeros_like(phis), cos_phi, sin_phi]),
         torch.stack([-sin_theta, -sin_phi * cos_theta, cos_phi_cos_theta]),
     ]).permute(2, 0, 1).unsqueeze(1)
 
@@ -40,11 +37,13 @@ def rotateFrustum(phis, thetas, frustum, jitter):
 # TODO: can uses a ray step decay scheme to decrease samples further
 def iterativeIntersection(rays, frustum, cameraLoc, latents, sdf, steps=32):
     device = rays.device
-
+    stepSize = 2.0 / float(steps)
     cameraLoc = cameraLoc.view(-1, 1, 3)
     sphereRays = rays[:, frustum.mask]
-    near = frustum.near[frustum.mask]
+
     far = frustum.far[frustum.mask]
+    # jitter the starting points by stepSize to avoid grid artifacts
+    near = frustum.near[frustum.mask] + torch.rand(*far.shape, device=device) * stepSize
     mask = torch.ones(*sphereRays.shape[:2], dtype=torch.bool, device=device)
     expandedLatents = latents.unsqueeze(1).expand(-1, near.shape[0], -1)
 
@@ -58,7 +57,7 @@ def iterativeIntersection(rays, frustum, cameraLoc, latents, sdf, steps=32):
     for i in range(1, steps):
         # march along each ray 2/steps at a time
         # ray length <= 2.0 (diameter of unit sphere)
-        distanceInSphere = near + (2.0 * float(i) / float(steps))
+        distanceInSphere = near + float(i) * stepSize
         # kill the rays that have marched out of the unit sphere
         mask[:, distanceInSphere >= far] = False
         # compute the next target points
@@ -73,7 +72,7 @@ def iterativeIntersection(rays, frustum, cameraLoc, latents, sdf, steps=32):
 
         # construct composite mask to update minimums
         minMask = values < minValues[mask]
-        updateMask = torch.zeros(*mask.shape, dtype=torch.bool, device=device)
+        updateMask = torch.zeros_like(mask)
         updateMask[mask] = minMask
 
         # update min and argmin

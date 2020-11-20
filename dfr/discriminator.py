@@ -15,11 +15,6 @@ class Discriminator(nn.Module):
             nn.Conv2d(fmapSize * 8, 1, 4, 2, 0)
         ])
 
-        # TODO: probably don't do this
-        # if hparams.weightNorm:
-        #     for i in range(len(self.layers)):
-        #         self.layers[i] = nn.utils.weight_norm(self.layers[i])
-
         # weight init, according to DC-GAN
         for layer in self.layers:
             nn.init.normal_(layer.weight.data, 0.0, 0.02)

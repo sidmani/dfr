@@ -43,13 +43,13 @@ class Frustum:
         self.far = center + delta
         self.mask = (self.far - self.near) > 1e-10
 
+    # offset the view field by a random (sub-pixel) angle
+    # this prevents artifacts caused by lack of sampling in between rays
     def jitteredViewField(self):
-        device = self.near.device
-
-        angle = self.fov / float(self.imageSize)
-        jitterTheta = (torch.rand(*self.thetaSpace.shape, device=device) - 0.5) * angle
-        jitterPhi = (torch.rand(*self.thetaSpace.shape, device=device) - 0.5) * angle
-
-        newTheta = self.thetaSpace + jitterTheta
-        newPhi = self.phiSpace + jitterPhi
-        return sphereToRect(newPhi, newTheta, 1.0).view(1, -1, 3, 1)
+        angle = self.fov / float(self.imageSize - 1)
+        jitterPhi = (torch.rand(self.near.shape, device=self.near.device) - 0.5) * angle
+        jitterTheta = (torch.rand(self.near.shape, device=self.near.device) - 0.5) * angle
+        return sphereToRect(
+                self.phiSpace + jitterPhi,
+                self.thetaSpace + jitterTheta,
+                1.0).view(1, -1, 3, 1)

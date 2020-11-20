@@ -7,12 +7,11 @@ def raycast(phis,
             frustum,
             sdf,
             raySamples):
-    device = phis.device
     batch = phis.shape[0]
 
     # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
-        rays, cameraLoc = rotateFrustum(phis, thetas, frustum, jitter=False)
+        rays, cameraLoc = rotateFrustum(phis, thetas, frustum, jitter=True)
         critPoints, hitMask = iterativeIntersection(rays, frustum, cameraLoc, latents, sdf, steps=raySamples)
     critPoints.requires_grad = True
     cameraLoc.requires_grad = True
@@ -28,7 +27,7 @@ def raycast(phis,
     # compute normals
     normals = torch.autograd.grad(outputs=values,
                 inputs=critPoints,
-                grad_outputs=torch.ones(values.shape, device=device),
+                grad_outputs=torch.ones_like(values),
                 create_graph=True,
                 retain_graph=True,
                 only_inputs=True)[0]
@@ -42,8 +41,8 @@ def raycast(phis,
     illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(batch, 1, 3, 1)).view(batch, -1, 1) + 1.0) / 2.0
     illum[notHitMask] = 1.0
 
-    result = torch.zeros(batch, 4, *frustum.mask.shape, device=device)
-    opacityMask = torch.ones(*values.shape, device=device)
+    result = torch.zeros(batch, 4, *frustum.mask.shape, device=phis.device)
+    opacityMask = torch.ones_like(values)
     opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     result[:, :3, frustum.mask] = (opacityMask.unsqueeze(2) * illum * textures).permute(0, 2, 1)
     result[:, 3, frustum.mask] = opacityMask

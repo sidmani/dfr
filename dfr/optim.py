@@ -16,7 +16,7 @@ def gradientPenalty(dis, real, fake):
     # grad has shape [batch, channels, px, px]
     grad = torch.autograd.grad(outputs=outputs,
                                inputs=interp,
-                               grad_outputs=torch.ones(outputs.shape, device=device),
+                               grad_outputs=torch.ones_like(outputs),
                                create_graph=True,
                                retain_graph=True,
                                only_inputs=True)[0]
