@@ -35,3 +35,6 @@ class Generator(nn.Module):
                 device=device)
 
         return self.forward(phis, thetas, z)
+
+    def sample_like(self, other):
+        return self.sample(other.shape[0], device=other.device)

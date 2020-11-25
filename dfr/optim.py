@@ -24,7 +24,7 @@ def gradientPenalty(dis, real, fake):
     # square; sum over pixel & channel dims; sqrt
     # shape [batch]; each element is the norm of a whole image
     gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
-    return ((gradNorm - 1.0) ** 2.0).mean()
+    return ((gradNorm - 1.0) ** 2.0).mean(), { 'gradient_norm': gradNorm.detach() }
 
 def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
     # the eikonal loss encourages the sdf to have unit gradient
@@ -53,7 +53,8 @@ def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
     # so we have to run the discriminator again
     # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
     # discriminator takes only 1/200 the time of the generator pass, so not a problem
-    return genLoss, eikonalLoss
+    return {'generator_loss': genLoss,
+            'eikonal_loss': eikonalLoss}
 
 def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     # the generator's not gonna be updated, so detach it from the grad graph
@@ -63,7 +64,7 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     fake = fake.detach().clone().requires_grad_()
 
     # compute the WGAN-gp gradient penalty
-    penalty = gradientPenalty(dis, real, fake)
+    penalty, logData = gradientPenalty(dis, real, fake)
 
     disFake = dis(fake).mean()
     disReal = dis(real).mean()
@@ -72,4 +73,7 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     disLoss.backward()
     disOpt.step()
     disOpt.zero_grad(set_to_none=True)
-    return disReal, disFake, disLoss
+    return {'discriminator_real': disReal,
+            'discriminator_fake': disFake,
+            'discriminator_total': disLoss,
+            **logData}

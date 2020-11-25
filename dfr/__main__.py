@@ -1,9 +1,10 @@
 import torch
+import re
 from argparse import ArgumentParser
 from pathlib import Path
 from .train import train
 from .dataset import ImageDataset
-import re
+from .logger import Logger
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -72,10 +73,13 @@ if __name__ == "__main__":
         print(f"This is version {version}.")
 
     dataCount = int(args.dlim) if args.dlim else None
-    train(int(args.batch),
-          device,
-          Path(args.data),
-          dataCount,
-          int(args.steps),
-          version,
-          checkpoint)
+    logger = Logger(version)
+
+    train(batchSize=int(args.batch),
+          device=device,
+          dataPath=Path(args.data),
+          dataCount=dataCount,
+          steps=int(args.steps),
+          version=version,
+          logger=logger,
+          checkpoint=checkpoint)
