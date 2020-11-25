@@ -33,6 +33,12 @@ if __name__ == "__main__":
         '-v',
         dest='ckpt',
     )
+    parser.add_argument(
+        '--debug-grad',
+        dest='debug_grad',
+        action='store_true',
+        default=False,
+    )
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -73,7 +79,7 @@ if __name__ == "__main__":
         print(f"This is version {version}.")
 
     dataCount = int(args.dlim) if args.dlim else None
-    logger = Logger(version)
+    logger = Logger(version, gradientData=args.debug_grad)
 
     train(batchSize=int(args.batch),
           device=device,

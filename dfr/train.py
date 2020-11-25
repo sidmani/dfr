@@ -17,7 +17,7 @@ def train(batchSize, device, dataPath, dataCount, steps, version, logger, checkp
     for idx in tqdm(range(startEpoch, steps), initial=startEpoch, total=steps):
         batch = next(dataloader)
         generated, normals = gen.sample_like(batch)
-        logData = {'fake': generated, 'real': batch}
+        logData = {'models': models, 'fake': generated, 'real': batch}
 
         # update the generator every nth iteration
         if idx % hparams.discIter == 0:

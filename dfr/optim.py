@@ -24,7 +24,7 @@ def gradientPenalty(dis, real, fake):
     # square; sum over pixel & channel dims; sqrt
     # shape [batch]; each element is the norm of a whole image
     gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
-    return ((gradNorm - 1.0) ** 2.0).mean(), { 'gradient_norm': gradNorm.detach() }
+    return ((gradNorm - 1.0) ** 2.0).mean()
 
 def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
     # the eikonal loss encourages the sdf to have unit gradient
@@ -64,7 +64,7 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     fake = fake.detach().clone().requires_grad_()
 
     # compute the WGAN-gp gradient penalty
-    penalty, logData = gradientPenalty(dis, real, fake)
+    penalty = gradientPenalty(dis, real, fake)
 
     disFake = dis(fake).mean()
     disReal = dis(real).mean()
@@ -75,5 +75,4 @@ def stepDiscriminator(fake, real, dis, disOpt, penaltyWeight=10.0):
     disOpt.zero_grad(set_to_none=True)
     return {'discriminator_real': disReal,
             'discriminator_fake': disFake,
-            'discriminator_total': disLoss,
-            **logData}
+            'discriminator_total': disLoss}
