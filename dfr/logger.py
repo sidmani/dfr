@@ -22,8 +22,11 @@ class Logger:
             self.logger.add_images('fake/collage', fake[:, :3], global_step=idx)
             self.logger.add_image('fake/closeup', fake[0][:3], global_step=idx)
             self.logger.add_image('fake/silhouette', fake[0][3], dataformats='HW', global_step=idx)
+            self.logger.add_image('fake/distance', fake[0][4], dataformats='HW', global_step=idx)
+
             self.logger.add_image('real/real', real[0][:3], global_step=idx)
             self.logger.add_image('real/silhouette', real[0][3], dataformats='HW', global_step=idx)
+            self.logger.add_image('real/distance', real[0][4], dataformats='HW', global_step=idx)
 
         # log debug data about discriminator gradients as necessary
         if self.gradientData and idx % 30 == 0:

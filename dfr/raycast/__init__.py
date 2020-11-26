@@ -32,7 +32,7 @@ def raycast(phis,
                 retain_graph=True,
                 only_inputs=True)[0]
 
-    unitNormals = normals / normals.norm(dim=1).unsqueeze(1)
+    unitNormals = normals / (normals.norm(dim=1).unsqueeze(1) + 1e-5)
 
     # light is directed from camera
     light = cameraLoc / frustum.cameraD
@@ -41,10 +41,14 @@ def raycast(phis,
     illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(batch, 1, 3, 1)).view(batch, -1, 1) + 1.0) / 2.0
     illum[notHitMask] = 1.0
 
-    result = torch.zeros(batch, 4, *frustum.mask.shape, device=phis.device)
+    result = torch.zeros(batch, 5, *frustum.mask.shape, device=phis.device)
     opacityMask = torch.ones_like(values)
     opacityMask[notHitMask] = torch.exp(-10.0 * values[notHitMask])
     result[:, :3, frustum.mask] = (opacityMask.unsqueeze(2) * illum * textures).permute(0, 2, 1)
     result[:, 3, frustum.mask] = opacityMask
+
+    values = torch.clamp(values, min=0)
+    result[:, 4, frustum.mask] = values / (torch.amax(values, dim=1).unsqueeze(1) + 1e-5)
+    result[:, 4, ~frustum.mask] = 1.0
 
     return result, normals
