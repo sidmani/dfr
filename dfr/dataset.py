@@ -6,14 +6,6 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from PIL import Image
 from tqdm import tqdm
-from scipy.ndimage import distance_transform_edt
-
-# convert the alpha channel of an image to a signed distance field
-def distanceTransform(alpha):
-    alpha = alpha.detach().numpy()
-    sdf = distance_transform_edt(1 - alpha)
-    scale = np.max(np.abs(sdf))
-    return torch.from_numpy(sdf / scale).float()
 
 class ImageDataset(Dataset):
     def __init__(self, dataPath, firstN=None, imageSize=64):
@@ -42,9 +34,7 @@ class ImageDataset(Dataset):
             # pick a random view (1 per object)
             idx = np.random.randint(0, imgsPerFolder)
             img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
-            img = pipeline(img)
-            distanceField = distanceTransform(img[3]).unsqueeze(0)
-            self.dataset.append(torch.cat([img, distanceField], dim=0))
+            self.dataset.append(pipeline(img))
 
     def __len__(self):
         return len(self.dataset)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self, hparams, channels=5, fmapSize=64):
+    def __init__(self, hparams, channels=4, fmapSize=64):
         super().__init__()
         # DC-GAN discriminator architecture
         # batch norm omitted per WGAN-GP
