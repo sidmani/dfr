@@ -10,7 +10,6 @@ from .generator import Generator
 
 HParams = namedtuple('HParams', [
         'learningRate',
-        'raySamples',
         'weightNorm',
         'discIter',
         'latentSize',
@@ -21,7 +20,6 @@ HParams = namedtuple('HParams', [
         'positional',
     ], defaults=[
         1e-4, # learningRate
-        32, # raySamples
         True, # weightNorm
         3, # discIter
         256, # latentSize
