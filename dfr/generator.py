@@ -16,7 +16,8 @@ class Generator(nn.Module):
                 thetas,
                 latents,
                 self.frustum,
-                self.sdf)
+                self.sdf,
+                self.hparams.raySamples)
 
     def sample(self, batchSize, phi=np.pi/6.0, device=None):
         # elevation angle: uniform pi/12 <= phi <= 3pi/12

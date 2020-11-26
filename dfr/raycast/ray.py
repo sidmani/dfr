@@ -1,5 +1,4 @@
 import torch
-from torch.nn.functional import avg_pool2d, interpolate
 from .frustum import sphereToRect
 
 # list the rays given a base frustum and a view angle
@@ -32,77 +31,46 @@ def rotateFrustum(phis, thetas, frustum, jitter):
     rays = torch.matmul(rotation, viewField).view(-1, frustum.imageSize, frustum.imageSize, 3)
     return rays, cameraLoc
 
-def intersection(rays, frustum, cameraLoc, latents, sdf, coarseSteps=32, fineSteps=32, kernel=4):
-    imageSize = (frustum.imageSize, frustum.imageSize)
-    smallSize = (frustum.imageSize // kernel, frustum.imageSize // kernel)
-    batch = rays.shape[0]
-    coarseStepSize = 2.0 / float(coarseSteps)
-
-    # first pass pools rays and uses a large step size to figure out approx. where the object is
-    pooledRays = avg_pool2d(rays.permute(0, 3, 1, 2), kernel_size=kernel).permute(0, 2, 3, 1)
-    pooledRays = pooledRays.view(batch, -1, 3)
-    pooledNear = avg_pool2d(frustum.near[None, None, ...], kernel_size=kernel).view(1, -1, 1)
-
-    origin = cameraLoc.view(-1, 1, 3) + pooledRays * pooledNear
-    expandedLatents = latents.unsqueeze(1).expand(-1, pooledRays.shape[1], -1)
-    coarsePoints, minValues, distances = raymarch(pooledRays,
-                                       origin,
-                                       expandedLatents,
-                                       sdf,
-                                       steps=coarseSteps,
-                                       stepSize=coarseStepSize)
-
-    minValues = minValues.view(-1, 1, *smallSize)
-    coarsePoints = coarsePoints.view(-1, *smallSize, 3).permute(0, 3, 1, 2)
-    distances = distances.view(-1, 1, *smallSize)
-    # upsample the results
-    minValues = interpolate(minValues, size=imageSize).squeeze(1)
-    coarsePoints = interpolate(coarsePoints, size=imageSize).permute(0, 2, 3, 1)
-    distances = interpolate(distances, size=imageSize).squeeze(1)
-
-    # figure out which rays need to be computed
-    # if the min distance is less than half the step size,
-    k = float(kernel) / float(frustum.imageSize) * frustum.fov * (distances + frustum.near)
-    bound = 0.5 * torch.sqrt(2. * k ** 2. + coarseStepSize ** 2)
-    hitMask = minValues <= bound
-
-    origin = cameraLoc.view(-1, 1, 1, 3) + rays * frustum.near[None, :, :, None]
-    expandedLatents = latents[:, None, None, :].expand(-1, *rays.shape[1:3], -1)
-
-    critPoints, minValues, _ = raymarch(rays[hitMask].unsqueeze(0),
-                             origin[hitMask].unsqueeze(0),
-                             expandedLatents[hitMask].unsqueeze(0),
-                             sdf,
-                             steps=fineSteps,
-                             stepSize=2.0 / float(fineSteps))
-
-    coarsePoints[hitMask] = critPoints + rays[hitMask].unsqueeze(0) * minValues.unsqueeze(2)
-    missedRays = rays[~hitMask]
-    return coarsePoints
-
-def raymarch(rays, origin, latents, sdf, steps, stepSize):
+# march along the rays to find the surface
+# can't sphere trace, because early in training the SDF is ill-formed
+# uses a lot of in-place operations and probably won't work with autograd
+# TODO: can uses a ray step decay scheme to decrease samples further
+def iterativeIntersection(rays, frustum, cameraLoc, latents, sdf, steps=32):
     device = rays.device
-    mask = torch.ones(*rays.shape[:2], dtype=torch.bool, device=device)
-    origin = origin + rays * torch.rand(1, rays.shape[1], 1, device=device) * stepSize
-    critPoints = origin + rays * stepSize
+    stepSize = 2.0 / float(steps)
+    cameraLoc = cameraLoc.view(-1, 1, 3)
+    sphereRays = rays[:, frustum.mask]
 
-    distances = 5.0 * torch.ones_like(mask, dtype=torch.float)
-    minValues = distances.clone()
+    far = frustum.far[frustum.mask]
+    # jitter the starting points by stepSize to avoid grid artifacts
+    near = frustum.near[frustum.mask] + torch.rand(*far.shape, device=device) * stepSize
+    mask = torch.ones(*sphereRays.shape[:2], dtype=torch.bool, device=device)
+    expandedLatents = latents.unsqueeze(1).expand(-1, near.shape[0], -1)
+
+    # initial critical points are on surface of sphere
+    critPoints = cameraLoc + sphereRays * near.view(1, -1, 1)
+
+    # minimum values are in [-1, 1] so start at 5 to guarantee decrease
+    minValues = 5.0 * torch.ones(*sphereRays.shape[:2], device=device)
 
     # start from 1, because the initial critical points are the 0-idx
     for i in range(1, steps):
-        # march along each ray
-        dist = float(i) * stepSize
-        distances[mask] = dist
+        # march along each ray 2/steps at a time
+        # ray length <= 2.0 (diameter of unit sphere)
+        distanceInSphere = near + float(i) * stepSize
+        # kill the rays that have marched out of the unit sphere
+        mask[:, distanceInSphere >= far] = False
         # compute the next target points
-        targets = (origin + rays * dist)[mask]
+        targets = (cameraLoc + sphereRays * distanceInSphere.view(1, -1, 1))[mask]
 
         # stop if all rays have terminated
         if targets.shape[0] == 0:
             break
 
         # evaluate the targets
-        values = sdf(targets, latents[mask], geomOnly=True).squeeze(1)
+        values = sdf(targets, expandedLatents[mask], geomOnly=True).squeeze(1)
+
+        # construct composite mask to update minimums
         minMask = values < minValues[mask]
         updateMask = torch.zeros_like(mask)
         updateMask[mask] = minMask
@@ -115,4 +83,9 @@ def raymarch(rays, origin, latents, sdf, steps, stepSize):
         # note that this is non-increasing; rays can't come back to life
         mask[mask] = values > 0.0
 
-    return critPoints, minValues, distances
+    # for the intersected rays, adjust to match surface more closely
+    # doesn't require sdf pass and significantly improves accuracy
+    hitMask = minValues <= 0.0
+    critPoints[hitMask] = sphereRays[hitMask] * minValues[hitMask].unsqueeze(1) + critPoints[hitMask]
+    # save and return the hit mask, because adjustment invalidates checking < 0 on the result
+    return critPoints, hitMask

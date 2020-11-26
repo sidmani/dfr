@@ -31,7 +31,17 @@ class Frustum:
 
         # create a ray vector for each pixel
         self.viewField = sphereToRect(self.phiSpace, self.thetaSpace, 1.0).view(1, -1, 3, 1)
-        self.near = (self.cameraD - 1.0) / (torch.cos(self.phiSpace) - torch.cos(self.thetaSpace) - 1)
+
+        center = self.cameraD * (torch.cos(self.phiSpace) - torch.cos(self.thetaSpace) - 1)
+
+        # clamp negative values to 0 before sqrt
+        radicand = torch.clamp(center ** 2 - self.cameraD ** 2 + 1.0, min=0.0)
+        delta = torch.sqrt(radicand)
+
+        # quadratic formula
+        self.near = center - delta
+        self.far = center + delta
+        self.mask = (self.far - self.near) > 1e-10
 
     # offset the view field by a random (sub-pixel) angle
     # this prevents artifacts caused by lack of sampling in between rays
