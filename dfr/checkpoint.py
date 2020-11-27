@@ -25,7 +25,7 @@ HParams = namedtuple('HParams', [
         True, # weightNorm
         3, # discIter
         256, # latentSize
-        0.3, # latent std dev
+        0.4, # latent std dev
         0.5, # ~30 deg FOV
         64, # imageSize
         # the eikonal factor has a strong influence on whether initial optimization is
@@ -69,13 +69,10 @@ def loadModel(checkpoint, device):
     gen = Generator(sdf, frustum, hparams).to(device)
     models = (gen, dis)
 
-    # TODO: custom beta value
-    betas = (0.5, 0.999)
+    betas = (0.0, 0.9)
     genOpt = Adam(gen.parameters(), hparams.learningRate, betas=betas)
     disOpt = Adam(dis.parameters(), hparams.learningRate, betas=betas)
     optimizers = (genOpt, disOpt)
-
-    # TODO: learning rate schedule
 
     if checkpoint is not None:
         dis.load_state_dict(checkpoint['dis'])

@@ -32,7 +32,7 @@ def raycast(phis,
                 retain_graph=True,
                 only_inputs=True)[0]
 
-    unitNormals = normals / normals.norm(dim=1).unsqueeze(1)
+    unitNormals = normals / (normals.norm(dim=1).unsqueeze(1) + 1e-5)
 
     # light is directed from camera
     light = cameraLoc / frustum.cameraD

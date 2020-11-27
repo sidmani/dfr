@@ -19,6 +19,9 @@ class Discriminator(nn.Module):
         for layer in self.layers:
             nn.init.normal_(layer.weight.data, 0.0, 0.02)
 
+        for i in range(len(self.layers)):
+            self.layers[i] = nn.utils.spectral_norm(self.layers[i])
+
         self.activation = torch.nn.LeakyReLU()
 
     def forward(self, x):
