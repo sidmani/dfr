@@ -11,13 +11,7 @@ class Generator(nn.Module):
         self.hparams = hparams
 
     def forward(self, phis, thetas, latents):
-        return raycast(
-                phis,
-                thetas,
-                latents,
-                self.frustum,
-                self.sdf,
-                self.hparams.raySamples)
+        return raycast(phis, thetas, self.frustum, latents, self.sdf)
 
     def sample(self, batchSize, phi=np.pi/6.0, device=None):
         # elevation angle: uniform pi/12 <= phi <= 3pi/12
@@ -26,7 +20,7 @@ class Generator(nn.Module):
         # azimuthal angle: uniform 0 <= theta < 2pi
         thetas = torch.rand(batchSize, device=device) * (2.0 * np.pi)
         # latents with mean 0, stddev >0.3
-        # DFR uses sigma=sqrt(0.33)
+        # DFR uses sigma=sqrt(0.33)=0.57
         # SALD/DeepSDF use much smaller stddev, but the latent space is optimized in those models
         z = torch.normal(
                 mean=0.0,

@@ -3,9 +3,9 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 from .discriminator import Discriminator
-from .raycast.frustum import Frustum
 from .sdfNetwork import SDFNetwork
 from .generator import Generator
+from .raycast import MultiscaleFrustum
 from .hparams import HParams
 
 class Checkpoint:
@@ -46,8 +46,8 @@ class Checkpoint:
             self.hparams = HParams()
             self.startEpoch = 0
 
-        frustum = Frustum(self.hparams.fov, self.hparams.imageSize, device)
         sdf = SDFNetwork(self.hparams)
+        frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)
         self.gen = Generator(sdf, frustum, self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
 

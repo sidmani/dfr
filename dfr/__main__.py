@@ -1,5 +1,6 @@
 import torch
 import re
+import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
 from .train import train
@@ -55,9 +56,12 @@ if __name__ == "__main__":
                       epoch=None,
                       device=device,
                       gradientData=args.debug_grad)
+
+    # don't have the explicit image size, so compute it from the raycast scales
+    imageSize = np.prod([item[0] for item in ckpt.hparams.raycastSteps])
     dataset = ImageDataset(Path(args.data),
                            firstN=int(args.dlim) if args.dlim else None,
-                           imageSize=ckpt.hparams.imageSize)
+                           imageSize=imageSize)
 
     train(batchSize=int(args.batch),
           device=device,
