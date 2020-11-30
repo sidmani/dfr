@@ -11,7 +11,7 @@ def main(args):
     ckpt = Checkpoint(Path.cwd() / 'runs',
                       version=args.ckpt,
                       epoch=args.epoch,
-                      device=None)
+                      device=torch.device('cpu'))
 
     res = int(args.res)
 

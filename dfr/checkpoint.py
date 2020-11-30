@@ -27,7 +27,7 @@ class Checkpoint:
                     nums.append(int(match[1]))
                 epoch = max(nums)
 
-            checkpoint = torch.load(self.loc / f"e{epoch}.pt")
+            checkpoint = torch.load(self.loc / f"e{epoch}.pt", map_location=device)
 
             self.hparams = checkpoint['hparams']
             self.startEpoch = checkpoint['epoch'] + 1
