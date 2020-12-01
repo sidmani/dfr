@@ -64,6 +64,6 @@ class SDFNetwork(nn.Module):
 
         # texture portion
         tx = self.activation(self.txLayers[0](r))
-        tx = torch.sigmoid(self.txLayers[1](r))
+        tx = torch.sigmoid(self.txLayers[1](tx))
 
         return sdf, tx
