@@ -14,10 +14,16 @@ def rotateAxes(phis, thetas):
         torch.stack([cos_phi * sin_theta, sin_phi, cos_phi * cos_theta]),
     ]).permute(2, 0, 1)
 
-def makeRays(axes, px, D, edge):
+def makeRays(axes, px, D, edge, noise=False):
     # TODO: offset
     xSpace = torch.linspace(-edge, edge, steps=px, device=axes.device).repeat(px, 1)[None, :, :, None]
     ySpace = -xSpace.transpose(1, 2)
+    spacing = 2 * edge / px
+    if noise:
+        # add noise to rays so they don't form a regular grid
+        # noise < pixel width, so the image is approximately the same
+        xSpace += (torch.rand_like(xSpace) - 0.5) * spacing
+        ySpace += (torch.rand_like(ySpace) - 0.5) * spacing
     x = axes[:, 0][:, None, None, :]
     y = axes[:, 1][:, None, None, :]
     z = axes[:, 2][:, None, None, :]
@@ -58,7 +64,7 @@ def multiscale(axes, frustum, latents, sdf):
         rayMask = upsample(rayMask, scale)
         expandedLatents = latents.expand(-1, size, size, -1)
         expandedOrigin = origin.expand(-1, size, size, -1)
-        rays = makeRays(axes, size, frustum.cameraD, frustum.edge)
+        rays = makeRays(axes, size, frustum.cameraD, frustum.edge, noise=True)
 
         # terminate rays that don't intersect the unit sphere
         rayMask = torch.logical_and(rayMask, sphereMask)

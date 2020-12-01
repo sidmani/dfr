@@ -1,13 +1,7 @@
-import torch
 from tqdm import tqdm
 from .optim import stepGenerator, stepDiscriminator
-from .dataset import makeDataloader
 
-def train(batchSize, device, dataset, steps, ckpt):
-    hparams = ckpt.hparams
-    print(hparams)
-
-    dataloader = makeDataloader(batchSize, dataset, device)
+def train(dataloader, steps, ckpt):
     for idx in tqdm(range(ckpt.startEpoch, steps),
                     initial=ckpt.startEpoch,
                     total=steps):
@@ -16,12 +10,12 @@ def train(batchSize, device, dataset, steps, ckpt):
         logData = {'fake': generated, 'real': batch}
 
         # update the generator every nth iteration
-        if idx % hparams.discIter == 0:
+        if idx % ckpt.hparams.discIter == 0:
             genData = stepGenerator(generated,
                                     normals,
                                     ckpt.dis,
                                     ckpt.genOpt,
-                                    hparams.eikonalFactor)
+                                    ckpt.hparams.eikonalFactor)
             logData.update(genData)
 
         # update the discriminator

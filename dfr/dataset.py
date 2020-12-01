@@ -1,4 +1,3 @@
-import torch
 import numpy as np
 from itertools import repeat
 from torch.utils.data.dataset import Dataset

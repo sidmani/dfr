@@ -6,6 +6,7 @@ from pathlib import Path
 from .train import train
 from .dataset import ImageDataset
 from .checkpoint import Checkpoint
+from .dataset import makeDataloader
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -56,15 +57,13 @@ if __name__ == "__main__":
                       epoch=None,
                       device=device,
                       gradientData=args.debug_grad)
+    print(ckpt.hparams)
+    imageSize = ckpt.gen.frustum.imageSize
 
     # don't have the explicit image size, so compute it from the raycast scales
-    imageSize = np.prod([item[0] for item in ckpt.hparams.raycastSteps])
     dataset = ImageDataset(Path(args.data),
                            firstN=int(args.dlim) if args.dlim else None,
                            imageSize=imageSize)
 
-    train(batchSize=int(args.batch),
-          device=device,
-          dataset=dataset,
-          steps=int(args.steps),
-          ckpt=ckpt)
+    dataloader = makeDataloader(int(args.batch), dataset, device)
+    train(dataloader, steps=int(args.steps), ckpt=ckpt)
