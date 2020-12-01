@@ -14,16 +14,18 @@ class SDFNetwork(nn.Module):
             nn.Linear(width, width),
             nn.Linear(width, width - inputSize),
             # skip connection from input into 5th layer
-            nn.Linear(width, width),
-            nn.Linear(width, width),
         ])
 
         self.sdfLayers = nn.ModuleList([
+            nn.Linear(width, width),
+            nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
 
         self.txLayers = nn.ModuleList([
+            nn.Linear(width, width),
+            nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, 3),
         ])
@@ -43,8 +45,7 @@ class SDFNetwork(nn.Module):
         self.activation = nn.ReLU()
 
     def forward(self, pts, expandedLatents, geomOnly=False):
-        inp = torch.cat([positional(pts, self.hparams.positional), expandedLatents],
-                         dim=1)
+        inp = torch.cat([positional(pts, self.hparams.positional), expandedLatents], dim=1)
         r = inp
         # TODO: layer idx 1 can be split into separate matrices and cached
         for i in range(4):
@@ -52,18 +53,20 @@ class SDFNetwork(nn.Module):
 
         # skip connection
         r = torch.cat([inp, r], dim=1)
-        for i in range(2):
-            r = self.activation(self.layers[i + 4](r))
 
         # sdf portion
-        sdf = self.activation(self.sdfLayers[0](r))
-        sdf = torch.tanh(self.sdfLayers[1](sdf))
+        sdf = r
+        for i in range(3):
+            sdf = self.activation(self.sdfLayers[i](sdf))
+        sdf = self.sdfLayers[3](sdf)
 
         if geomOnly:
             return sdf
 
         # texture portion
-        tx = self.activation(self.txLayers[0](r))
-        tx = torch.sigmoid(self.txLayers[1](r))
+        tx = r
+        for i in range(3):
+            tx = self.activation(self.txLayers[i](tx))
+        tx = torch.sigmoid(self.txLayers[3](tx))
 
         return sdf, tx

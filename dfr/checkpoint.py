@@ -1,83 +1,129 @@
+import re
 import torch
-import numpy as np
-from pathlib import Path
+from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
-from collections import namedtuple
-from .raycast.frustum import Frustum
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
 from .generator import Generator
+from .raycast import MultiscaleFrustum
+from .hparams import HParams
 
-HParams = namedtuple('HParams', [
-        'learningRate',
-        'raySamples',
-        'weightNorm',
-        'discIter',
-        'latentSize',
-        'latentStd',
-        'fov',
-        'imageSize',
-        'eikonalFactor',
-        'positional',
-    ], defaults=[
-        1e-4, # learningRate
-        32, # raySamples
-        True, # weightNorm
-        3, # discIter
-        256, # latentSize
-        0.4, # latent std dev
-        0.5, # ~30 deg FOV
-        64, # imageSize
-        # the eikonal factor has a strong influence on whether initial optimization is
-        # done with texture or geometry. Generally we want geometry to be optimized first.
-        # If it's too large (around 2.5), the SDF is hard to edit, so textures are modified instead
-        # Too low (0.1) and the SDF coalesces slowly or not at all
-        1.0, # eikonalFactor
-        6, # positional encoding (# of frequencies)
-    ])
+class Checkpoint:
+    def __init__(self, runDir, version=None, epoch=None, device=None, gradientData=False):
+        if version:
+            # load version if given
+            self.loc = runDir / version
+            if not self.loc.exists:
+                raise Exception(f'Version {version} does not exist.')
 
-def saveModel(gen, dis, genOpt, disOpt, hparams, version, epoch, overwrite=True):
-    ckptDir = Path.cwd() / 'runs' / f"v{version}"
-    ckptDir.mkdir(parents=True, exist_ok=True)
+            if not epoch:
+                available = list(self.loc.glob('*.pt'))
+                if len(available) == 0:
+                    raise Exception(f'No checkpoints found for version {version}.')
 
-    if overwrite:
-        for file in ckptDir.glob("*.pt"):
-            file.unlink()
+                nums = []
+                for f in available:
+                    match = re.match("e([0-9]+)", str(f.stem))
+                    nums.append(int(match[1]))
+                epoch = max(nums)
 
-    torch.save({
-        'hparams': hparams,
-        'gen': gen.state_dict(),
-        'dis': dis.state_dict(),
-        'gen_opt': genOpt.state_dict(),
-        'dis_opt': disOpt.state_dict(),
-        'epoch': epoch,
-        }, ckptDir / f"e{epoch}.pt")
+            checkpoint = torch.load(self.loc / f"e{epoch}.pt", map_location=device)
 
-def loadModel(checkpoint, device):
-    if checkpoint is not None:
-        hparams = checkpoint['hparams']
-        startEpoch = checkpoint['epoch'] + 1
-    else:
-        hparams = HParams()
-        startEpoch = 0
+            self.hparams = checkpoint['hparams']
+            self.startEpoch = checkpoint['epoch'] + 1
+        else:
+            # otherwise create a new version
+            versions = [-1]
+            for f in runDir.glob('*'):
+                match = re.match('([0-9]+)', str(f.stem))
+                if match:
+                    versions.append(int(match[1]))
 
-    dis = Discriminator(hparams).to(device)
+            version = str(max(versions) + 1)
+            self.loc = runDir / version
+            self.loc.mkdir(exist_ok=True)
+            checkpoint = None
+            self.hparams = HParams()
+            self.startEpoch = 0
 
-    # build generator
-    frustum = Frustum(hparams.fov, hparams.imageSize, device)
-    sdf = SDFNetwork(hparams)
-    gen = Generator(sdf, frustum, hparams).to(device)
-    models = (gen, dis)
+        sdf = SDFNetwork(self.hparams)
+        frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)
+        self.gen = Generator(sdf, frustum, self.hparams).to(device)
+        self.dis = Discriminator(self.hparams).to(device)
 
-    betas = (0.0, 0.9)
-    genOpt = Adam(gen.parameters(), hparams.learningRate, betas=betas)
-    disOpt = Adam(dis.parameters(), hparams.learningRate, betas=betas)
-    optimizers = (genOpt, disOpt)
+        self.genOpt = Adam(self.gen.parameters(),
+                           self.hparams.learningRate,
+                           betas=self.hparams.betas)
+        self.disOpt = Adam(self.dis.parameters(),
+                           self.hparams.learningRate,
+                           betas=self.hparams.betas)
 
-    if checkpoint is not None:
-        dis.load_state_dict(checkpoint['dis'])
-        gen.load_state_dict(checkpoint['gen'])
-        genOpt.load_state_dict(checkpoint['gen_opt'])
-        disOpt.load_state_dict(checkpoint['dis_opt'])
+        if checkpoint is not None:
+            self.dis.load_state_dict(checkpoint['dis'])
+            self.gen.load_state_dict(checkpoint['gen'])
+            self.genOpt.load_state_dict(checkpoint['gen_opt'])
+            self.disOpt.load_state_dict(checkpoint['dis_opt'])
 
-    return models, optimizers, hparams, startEpoch
+        self.version = version
+        self.logger = SummaryWriter(log_dir=self.loc)
+        self.gradientData = gradientData
+
+    def save(self, epoch, overwrite=True):
+        if overwrite:
+            for file in self.loc.glob("*.pt"):
+                file.unlink()
+
+        torch.save({
+            'hparams': self.hparams,
+            'gen': self.gen.state_dict(),
+            'dis': self.dis.state_dict(),
+            'gen_opt': self.genOpt.state_dict(),
+            'dis_opt': self.disOpt.state_dict(),
+            'epoch': epoch,
+            }, self.loc / f"e{epoch}.pt")
+
+    def log(self, data, idx):
+        if 'generator_loss' in data:
+            self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
+            self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)
+
+        self.logger.add_scalar('discriminator/fake', data['discriminator_fake'], global_step=idx)
+        self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)
+        self.logger.add_scalar('discriminator/total', data['discriminator_total'], global_step=idx)
+
+        # log images every 10 iterations
+        if idx % 10 == 0:
+            fake = data['fake']
+            real = data['real']
+            self.logger.add_images('fake/collage', fake[:, :3], global_step=idx)
+            self.logger.add_image('fake/closeup', fake[0][:3], global_step=idx)
+            self.logger.add_image('fake/silhouette', fake[0][3], dataformats='HW', global_step=idx)
+            self.logger.add_image('real/real', real[0][:3], global_step=idx)
+            self.logger.add_image('real/silhouette', real[0][3], dataformats='HW', global_step=idx)
+
+        # log debug data about discriminator gradients as necessary
+        if self.gradientData and idx % 30 == 0:
+            self.debug_gradientData(data, idx)
+
+    def debug_gradientData(self, data, idx):
+        fake = data['fake']
+        real = data['real']
+        real.requires_grad = True
+
+        fakeOutput = self.dis(fake)
+        realOutput = self.dis(real)
+
+        fakeGrad = torch.autograd.grad(outputs=fakeOutput,
+                       inputs=fake,
+                       grad_outputs=torch.ones_like(fakeOutput),
+                       only_inputs=True)[0]
+        realGrad = torch.autograd.grad(outputs=realOutput,
+                       inputs=real,
+                       grad_outputs=torch.ones_like(realOutput),
+                       only_inputs=True)[0]
+
+        fakeGrad = (fakeGrad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
+        realGrad = (realGrad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
+
+        self.logger.add_histogram('fake_gradient', fakeGrad, global_step=idx)
+        self.logger.add_histogram('real_gradient', realGrad, global_step=idx)

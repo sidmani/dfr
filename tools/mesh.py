@@ -5,38 +5,13 @@ from skimage import measure
 from trimesh import Trimesh, Scene
 from trimesh.viewer.windowed import SceneViewer
 from pathlib import Path
-from dfr.checkpoint import loadModel
-import re
+from dfr.checkpoint import Checkpoint
 
 def main(args):
-    if args.epoch:
-        epoch = int(args.epoch)
-    else:
-        if args.ckpt.isnumeric():
-            # load the newest checkpoint for given version
-            ckpt = f"v{args.ckpt}"
-        else:
-            ckpt = args.ckpt
-
-        checkpointPath = Path.cwd() / 'runs' / ckpt
-        if not checkpointPath.exists:
-            raise Exception(f'Version {args.ckpt} does not exist')
-
-        available = list(checkpointPath.glob('*.pt'))
-        if len(available) == 0:
-            raise Exception(f'No checkpoints found for version {args.ckpt}')
-
-        nums = []
-        for f in available:
-            match = re.match("e([0-9]+)", str(f.stem))
-            nums.append(int(match[1]))
-        epoch = max(nums)
-
-    checkpoint = torch.load(checkpointPath / f"e{epoch}.pt", map_location=torch.device('cpu'))
-    models, _, _, _ = loadModel(checkpoint, device=None)
-    gen, dis = models
-    hp = checkpoint['hparams']
-    print(f"Loaded version {args.ckpt}, epoch {checkpoint['epoch']}.")
+    ckpt = Checkpoint(Path.cwd() / 'runs',
+                      version=args.ckpt,
+                      epoch=args.epoch,
+                      device=torch.device('cpu'))
 
     res = int(args.res)
 
@@ -53,14 +28,14 @@ def main(args):
 
         latent = torch.normal(
                 mean=0.0,
-                std=hp.latentStd,
-                size=(1, hp.latentSize))
+                std=ckpt.hparams.latentStd,
+                size=(1, ckpt.hparams.latentSize))
 
         expandedLatents = latent.expand(grid.shape[0], -1)
 
         # create input vector and compute values
         # out, normals = gen.sdf(grid, latent)
-        out = gen.sdf(grid, expandedLatents, geomOnly=True)
+        out = ckpt.gen.sdf(grid, expandedLatents, geomOnly=True)
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
         cubic = torch.reshape(out, (res, res, res)).detach().numpy()
@@ -69,7 +44,6 @@ def main(args):
     mesh = Trimesh(vertices=verts, faces=faces)
     scene = Scene([mesh])
     viewer = SceneViewer(scene)
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()

@@ -1,10 +1,12 @@
 import torch
 import re
+import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
 from .train import train
 from .dataset import ImageDataset
-from .logger import Logger
+from .checkpoint import Checkpoint
+from .dataset import makeDataloader
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -48,44 +50,20 @@ if __name__ == "__main__":
         print('No GPU, falling back to CPU.')
         device = torch.device('cpu')
 
-    if args.ckpt:
-        # load the newest checkpoint for given version
-        checkpointPath = Path.cwd() / 'runs' / f"v{args.ckpt}"
-        if not checkpointPath.exists:
-            raise Exception(f'Version {args.ckpt} does not exist')
+    runDir = Path.cwd() / 'runs'
+    runDir.mkdir(exist_ok=True)
+    ckpt = Checkpoint(runDir,
+                      version=args.ckpt,
+                      epoch=None,
+                      device=device,
+                      gradientData=args.debug_grad)
+    print(ckpt.hparams)
+    imageSize = ckpt.gen.frustum.imageSize
 
-        available = list(checkpointPath.glob('*.pt'))
-        if len(available) == 0:
-            raise Exception(f'No checkpoints found for version {args.ckpt}')
+    # don't have the explicit image size, so compute it from the raycast scales
+    dataset = ImageDataset(Path(args.data),
+                           firstN=int(args.dlim) if args.dlim else None,
+                           imageSize=imageSize)
 
-        nums = []
-        for f in available:
-            match = re.match("e([0-9]+)", str(f.stem))
-            nums.append(int(match[1]))
-
-        checkpoint = torch.load(checkpointPath / f"e{max(nums)}.pt")
-        version = int(args.ckpt)
-        print(f"Loaded version {version}, epoch {checkpoint['epoch']}.")
-    else:
-        checkpointDir = Path.cwd() / 'runs'
-        checkpointDir.mkdir(parents=True, exist_ok=True)
-        versions = [-1]
-        for f in checkpointDir.glob('v*'):
-            match = re.match('v([0-9]+)', str(f.stem))
-            versions.append(int(match[1]))
-
-        version = max(versions) + 1
-        checkpoint = None
-        print(f"This is version {version}.")
-
-    dataCount = int(args.dlim) if args.dlim else None
-    logger = Logger(version, gradientData=args.debug_grad)
-
-    train(batchSize=int(args.batch),
-          device=device,
-          dataPath=Path(args.data),
-          dataCount=dataCount,
-          steps=int(args.steps),
-          version=version,
-          logger=logger,
-          checkpoint=checkpoint)
+    dataloader = makeDataloader(int(args.batch), dataset, device)
+    train(dataloader, steps=int(args.steps), ckpt=ckpt)
