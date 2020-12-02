@@ -3,6 +3,7 @@ import re
 import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
+from .hparams import HParams
 from .train import train
 from .dataset import ImageDataset
 from .checkpoint import Checkpoint
@@ -41,14 +42,25 @@ if __name__ == "__main__":
         action='store_true',
         default=False,
     )
+    parser.add_argument(
+        '--override-hp',
+        dest='override_hp',
+        action='store_true',
+        default=False
+    )
     args = parser.parse_args()
 
     if torch.cuda.is_available():
-        print('Discovered GPU.')
+        print('discovered gpu.')
         device = torch.device('cuda')
     else:
-        print('No GPU, falling back to CPU.')
+        print('no gpu, falling back to cpu.')
         device = torch.device('cpu')
+
+    if args.override_hp:
+        hp = HParams()
+    else:
+        hp = None
 
     runDir = Path.cwd() / 'runs'
     runDir.mkdir(exist_ok=True)
@@ -56,7 +68,8 @@ if __name__ == "__main__":
                       version=args.ckpt,
                       epoch=None,
                       device=device,
-                      gradientData=args.debug_grad)
+                      gradientData=args.debug_grad,
+                      hparams=hp)
     print(ckpt.hparams)
     imageSize = ckpt.gen.frustum.imageSize
 

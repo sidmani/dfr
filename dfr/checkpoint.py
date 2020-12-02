@@ -9,7 +9,13 @@ from .raycast import MultiscaleFrustum
 from .hparams import HParams
 
 class Checkpoint:
-    def __init__(self, runDir, version=None, epoch=None, device=None, gradientData=False):
+    def __init__(self,
+                 runDir,
+                 version=None,
+                 epoch=None,
+                 device=None,
+                 gradientData=False,
+                 hparams=None):
         if version:
             # load version if given
             self.loc = runDir / version
@@ -45,6 +51,9 @@ class Checkpoint:
             checkpoint = None
             self.hparams = HParams()
             self.startEpoch = 0
+
+        if hparams:
+            self.hparams = hparams
 
         sdf = SDFNetwork(self.hparams)
         frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)

@@ -43,8 +43,8 @@ tensorboard==2.3.0
 tensorboard-plugin-wit==1.7.0
 tifffile==2020.10.1
 toml==0.10.2
-torch==1.7.0
-torchvision==0.8.1
+torch==1.7.0+cu110
+torchvision==0.8.1+cu110
 tqdm==4.51.0
 trimesh==3.8.15
 typing-extensions==3.7.4.3
