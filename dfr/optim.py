@@ -1,5 +1,31 @@
 import torch
 
+# WGAN-gp gradient penalty
+# basic idea: the discriminator should have unit gradient along the real-fake line
+def gradientPenalty(dis, real, fake):
+    device = real.device
+
+    # epsilon different for each batch item
+    # ignoring that torch.rand is in [0, 1), but wgan-gp specifies [0, 1]
+    epsilon = torch.rand(real.shape[0], 1, 1, 1, device=device)
+    interp = epsilon * real + (1.0 - epsilon) * fake
+    outputs = dis(interp)
+
+    # original grad calculation was wrong; see:
+    # https://stackoverflow.com/questions/53413706/large-wgan-gp-train-loss
+    # grad has shape [batch, channels, px, px]
+    grad = torch.autograd.grad(outputs=outputs,
+                               inputs=interp,
+                               grad_outputs=torch.ones_like(outputs),
+                               create_graph=True,
+                               retain_graph=True,
+                               only_inputs=True)[0]
+
+    # square; sum over pixel & channel dims; sqrt
+    # shape [batch]; each element is the norm of a whole image
+    gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
+    return ((gradNorm - 1.0) ** 2.0).mean()
+
 def stepGenerator(fake, normals, dis, genOpt, eikonalFactor):
     # the eikonal loss encourages the sdf to have unit gradient
     eikonalLoss = ((normals.norm(dim=1) - 1.0) ** 2.0).mean()
@@ -37,9 +63,11 @@ def stepDiscriminator(fake, real, dis, disOpt):
     # need to clone so that in-place ops in CNN are legal
     fake = fake.detach().clone().requires_grad_()
 
+    penalty = gradientPenalty(dis, real, fake)
+
     disFake = dis(fake).mean()
     disReal = dis(real).mean()
-    disLoss = disFake - disReal
+    disLoss = disFake - disReal + penalty * 10.0
 
     disLoss.backward()
     disOpt.step()

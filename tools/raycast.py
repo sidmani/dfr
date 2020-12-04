@@ -1,10 +1,15 @@
 import torch
+from pathlib import Path
+from argparse import ArgumentParser
 import torch.autograd.profiler as profiler
 import numpy as np
 import matplotlib.pyplot as plt
-from dfr.checkpoint import HParams
+from dfr.hparams import HParams
+from dfr.checkpoint import Checkpoint
 from dfr.raycast import raycast, MultiscaleFrustum
 from dfr.sdfNetwork import SDFNetwork
+
+count = 0
 
 # signed-distance function for the half-unit sphere
 class MockSDFSphere:
@@ -25,20 +30,28 @@ class MockSDFCube:
         # tx = latents[:, :3]
         return sdf, tx
 
-if __name__ == "__main__":
-    count = 0
+def main(args):
+    device = torch.device('cpu')
+    if args.ckpt:
+        ckpt = Checkpoint(Path.cwd() / 'runs',
+                          version=args.ckpt,
+                          epoch=None,
+                          device=device)
+        hp = ckpt.hparams
+        sdf = ckpt.gen.sdf
+        latents = torch.normal(mean=0.0, std=hp.latentStd, size=(2, hp.latentSize), device=device)
+    else:
+        hp = HParams()
+        sdf = MockSDFCube()
+        latents = torch.zeros(2, hp.latentSize)
+        latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5])
+        latents[1, :6] = torch.tensor([1.0, 0.0, 0.0, 0.5, 0.5, 0.5])
+
     phis = torch.tensor([0.0, np.pi/4])
     thetas = torch.tensor([0.0, np.pi/4])
-    hp = HParams()
-    latents = torch.zeros(2, hp.latentSize)
-    latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5])
-    latents[1, :6] = torch.tensor([1.0, 0.0, 0.0, 0.5, 0.5, 0.5])
-    sdf = MockSDFCube()
-    frustum = MultiscaleFrustum(hp.fov, [(16, 16), (2, 16), (2, 32)], device=None)
+    frustum = MultiscaleFrustum(hp.fov, [(16, 16), (2, 16), (4, 32)], device=None)
 
     out, normals = raycast(phis, thetas, frustum, latents, sdf)
-
-    # print(prof.key_averages().table(sort_by="cpu_memory_usage", row_limit=20))
 
     print(f"{count} SDF queries.")
     print(out[0].shape)
@@ -54,3 +67,13 @@ if __name__ == "__main__":
     axs[1, 1].imshow(sil2)
 
     plt.show()
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument(
+            '--version',
+            '-v',
+            dest='ckpt',
+    )
+    args = parser.parse_args()
+    main(args)

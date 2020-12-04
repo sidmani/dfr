@@ -14,16 +14,10 @@ def rotateAxes(phis, thetas):
         torch.stack([cos_phi * sin_theta, sin_phi, cos_phi * cos_theta]),
     ]).permute(2, 0, 1)
 
-def makeRays(axes, px, D, edge, noise=False):
+def makeRays(axes, px, D, edge):
     # TODO: offset
     xSpace = torch.linspace(-edge, edge, steps=px, device=axes.device).repeat(px, 1)[None, :, :, None]
     ySpace = -xSpace.transpose(1, 2)
-    spacing = 2 * edge / px
-    if noise:
-        # add noise to rays so they don't form a regular grid
-        # noise < pixel width, so the image is approximately the same
-        xSpace += (torch.rand_like(xSpace) - 0.5) * spacing
-        ySpace += (torch.rand_like(ySpace) - 0.5) * spacing
     x = axes[:, 0][:, None, None, :]
     y = axes[:, 1][:, None, None, :]
     z = axes[:, 2][:, None, None, :]
@@ -50,7 +44,7 @@ def multiscale(axes, frustum, latents, sdf):
             # a geometric bound for whether a super-ray could have subrays that intersected the object
             k = (maskedNear + distances) * 2 * np.tan(frustum.fov / (2 * float(size)))
             k = k.squeeze()
-            bound = torch.sqrt(2. * k ** 2. + (1.0 / step) ** 2) * 0.8
+            bound = torch.sqrt(2. * k ** 2. + (1.0 / step) ** 2)
 
             # subdivide the rays that pass close to the object
             rayMask[rayMask] = minValues <= bound
@@ -64,7 +58,7 @@ def multiscale(axes, frustum, latents, sdf):
         rayMask = upsample(rayMask, scale)
         expandedLatents = latents.expand(-1, size, size, -1)
         expandedOrigin = origin.expand(-1, size, size, -1)
-        rays = makeRays(axes, size, frustum.cameraD, frustum.edge, noise=True)
+        rays = makeRays(axes, size, frustum.cameraD, frustum.edge)
 
         # terminate rays that don't intersect the unit sphere
         rayMask = torch.logical_and(rayMask, sphereMask)

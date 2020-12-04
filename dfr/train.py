@@ -25,6 +25,6 @@ def train(dataloader, steps, ckpt):
         # write the log output
         ckpt.log(logData, idx)
 
-        # save every 25 iterations
-        if idx % 25 == 0:
+        # save every 100 iterations
+        if idx % 100 == 0:
             ckpt.save(idx)

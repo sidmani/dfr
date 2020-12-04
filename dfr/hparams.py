@@ -13,13 +13,13 @@ HParams = namedtuple('HParams', [
         'raycastSteps',
     ], defaults=[
         1e-4, # learningRate
-        (0.0, 0.9), # betas
+        (0.5, 0.9), # betas
         True, # weightNorm
         3, # discIter
         256, # latentSize
         # higher stddev decreases the convergence rate
         # also likely need larger batch size for larger stddev
-        0.4, # latent stddev
+        0.3, # latent stddev
         0.5, # ~30 deg FOV
         # the eikonal factor has a strong influence on whether initial optimization is
         # done with texture or geometry. Generally we want geometry to be optimized first.
