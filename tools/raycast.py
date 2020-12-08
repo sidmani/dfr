@@ -1,7 +1,7 @@
 import torch
 from pathlib import Path
 from argparse import ArgumentParser
-import torch.autograd.profiler as profiler
+from torch.cuda.amp import GradScaler
 import numpy as np
 import matplotlib.pyplot as plt
 from dfr.hparams import HParams
@@ -17,6 +17,9 @@ class MockSDFSphere:
         return torch.norm(x, dim=1) - 0.75
 
 class MockSDFCube:
+    def forward_inplace(self, x, latents, mask):
+        return self(x, latents[mask], geomOnly=True)
+
     def __call__(self, x, latents, geomOnly=False):
         global count
         count += x.shape[0]
@@ -26,12 +29,13 @@ class MockSDFCube:
                 + torch.clamp(torch.max(q[:, 0], torch.max(q[:, 1], q[:, 2])), max=0.0)).unsqueeze(1)
         if geomOnly:
             return sdf
-        tx = torch.clamp((x / 2.0) + torch.tensor([0.5, 0.5, 0.5]).view(1, 3), 0.0, 1.0)
+        tx = torch.clamp((x / 2.0) + torch.tensor([0.5, 0.5, 0.5], device=x.device, dtype=x.dtype).view(1, 3), 0.0, 1.0)
         # tx = latents[:, :3]
         return sdf, tx
 
 def main(args):
-    device = torch.device('cpu')
+    device = torch.device('cuda')
+    dtype = torch.float
     if args.ckpt:
         ckpt = Checkpoint(Path.cwd() / 'runs',
                           version=args.ckpt,
@@ -39,24 +43,25 @@ def main(args):
                           device=device)
         hp = ckpt.hparams
         sdf = ckpt.gen.sdf
-        latents = torch.normal(mean=0.0, std=hp.latentStd, size=(2, hp.latentSize), device=device)
+        latents = torch.normal(mean=0.0, std=hp.latentStd, size=(2, hp.latentSize), device=device, dtype=dtype)
     else:
         hp = HParams()
         sdf = MockSDFCube()
-        latents = torch.zeros(2, hp.latentSize)
-        latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5])
-        latents[1, :6] = torch.tensor([1.0, 0.0, 0.0, 0.5, 0.5, 0.5])
+        latents = torch.zeros(2, hp.latentSize, device=device, dtype=dtype)
+        latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
+        latents[1, :6] = torch.tensor([1.0, 0.0, 0.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
 
-    phis = torch.tensor([0.0, np.pi/4])
-    thetas = torch.tensor([0.0, np.pi/4])
-    frustum = MultiscaleFrustum(hp.fov, [(16, 16), (2, 16), (4, 32)], device=None)
+    phis = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
+    thetas = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
+    frustum = MultiscaleFrustum(hp.fov, hp.raycastSteps, device=device)
 
-    out, normals = raycast(phis, thetas, frustum, latents, sdf)
+    scaler = GradScaler(init_scale=32768.)
+    out, normals = raycast(phis, thetas, frustum, latents, sdf, scaler)
 
     print(f"{count} SDF queries.")
     print(out[0].shape)
-    obj1 = out[0].permute(1, 2, 0).detach().numpy()
-    obj2 = out[1].permute(1, 2, 0).detach().numpy()
+    obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
+    obj2 = out[1].permute(1, 2, 0).cpu().detach().numpy()
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 

@@ -14,7 +14,7 @@ HParams = namedtuple('HParams', [
     ], defaults=[
         1e-4, # learningRate
         (0.5, 0.9), # betas
-        True, # weightNorm
+        False, # weightNorm
         3, # discIter
         256, # latentSize
         # higher stddev decreases the convergence rate
@@ -27,5 +27,5 @@ HParams = namedtuple('HParams', [
         # Too low (0.1) and the SDF coalesces slowly or not at all
         1.0, # eikonalFactor
         6, # positional encoding (# of frequencies)
-        [(16, 16), (2, 16), (2, 32)], # raycast steps
+        [(32, 16), (4, 16)], # raycast steps
     ])

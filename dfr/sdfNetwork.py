@@ -4,7 +4,7 @@ import numpy as np
 from .positional import positional
 
 class SDFNetwork(nn.Module):
-    def __init__(self, hparams, width=512):
+    def __init__(self, hparams, basis, width=512):
         super().__init__()
         inputSize = hparams.latentSize + 3 * hparams.positional * 2
 
@@ -30,6 +30,8 @@ class SDFNetwork(nn.Module):
             nn.Linear(width, 3),
         ])
 
+        self.basis = basis
+
         self.hparams = hparams
         if hparams.weightNorm:
             for i in range(len(self.layers)):
@@ -44,15 +46,43 @@ class SDFNetwork(nn.Module):
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    def forward(self, pts, expandedLatents, geomOnly=False):
-        inp = torch.cat([positional(pts, self.hparams.positional), expandedLatents], dim=1)
+    # this must be run with no_grad
+    def forward_inplace(self, pts, allLatents, mask):
+        expandedLatents = allLatents[mask]
+        sin, cos = positional(pts, self.basis, inplace=True)
+        inp = torch.cat([sin, cos, expandedLatents], dim=1)
+        del sin
+        del cos
+        del expandedLatents
+
+        a = inp
+        for i in range(4):
+            a = self.activation(self.layers[i](a))
+
+        # skip connection
+        a = torch.cat([inp, a], dim=1)
+        del inp
+
+        # sdf portion
+        for i in range(3):
+            a = self.activation(self.sdfLayers[i](a))
+
+        return self.sdfLayers[3](a)
+
+    def forward(self, pts, expandedLatents):
+        sin, cos = positional(pts, self.basis)
+
+        # a single cat operation here saves a lot of memory
+        inp = torch.cat([sin, cos, expandedLatents], dim=1)
+        del sin, cos
+
         r = inp
-        # TODO: layer idx 1 can be split into separate matrices and cached
         for i in range(4):
             r = self.activation(self.layers[i](r))
 
         # skip connection
         r = torch.cat([inp, r], dim=1)
+        del inp
 
         # sdf portion
         sdf = r
@@ -60,11 +90,9 @@ class SDFNetwork(nn.Module):
             sdf = self.activation(self.sdfLayers[i](sdf))
         sdf = self.sdfLayers[3](sdf)
 
-        if geomOnly:
-            return sdf
-
         # texture portion
         tx = r
+        del r
         for i in range(3):
             tx = self.activation(self.txLayers[i](tx))
         tx = torch.sigmoid(self.txLayers[3](tx))

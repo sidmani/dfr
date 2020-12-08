@@ -1,11 +1,15 @@
 absl-py==0.11.0
 attrs==20.2.0
 cachetools==4.1.1
+calmsize==0.1.3
 certifi==2020.6.20
 chardet==3.0.4
+click==7.1.2
+cxxfilt==0.2.2
 cycler==0.10.0
 dataclasses==0.6
 decorator==4.4.2
+Flask==1.1.2
 fsspec==0.8.4
 future==0.18.2
 google-auth==1.23.0
@@ -14,13 +18,23 @@ grpcio==1.33.2
 idna==2.10
 imageio==2.9.0
 iniconfig==1.1.1
+itsdangerous==1.1.0
+Jinja2==2.11.2
 kiwisolver==1.3.1
 Markdown==3.3.3
+MarkupSafe==1.1.1
 matplotlib==3.3.2
 networkx==2.5
 numpy==1.19.4
+nvidia-dlprof==0.17.0
+nvidia-nsys-cli==2020.4.1.117
+nvidia-pyindex==1.0.5
+nvidia-pyprof==3.6.0
+nvidia-tensorboard==1.15.0+nv20.11
+nvidia-tensorboard-plugin-dlprof==0.9
 oauthlib==3.1.0
 packaging==20.4
+pandas==1.1.4
 Pillow==8.0.1
 pluggy==0.13.1
 protobuf==3.13.0
@@ -31,6 +45,8 @@ pyglet==1.5.11
 pyparsing==2.4.7
 pytest==6.1.2
 python-dateutil==2.8.1
+pytorch-memlab @ git+https://github.com/stonesjtu/pytorch_memlab@654cbb84a40807cd10a80e05ea365e5d8652311d
+pytz==2020.4
 PyWavelets==1.1.1
 PyYAML==5.3.1
 requests==2.24.0
@@ -39,7 +55,8 @@ rsa==4.6
 scikit-image==0.17.2
 scipy==1.5.4
 six==1.15.0
-tensorboard==2.3.0
+tabulate==0.8.7
+tensorboard @ https://pypi.ngc.nvidia.com/tensorboard/tensorboard-1.15.0-py2.py3-none-any.whl
 tensorboard-plugin-wit==1.7.0
 tifffile==2020.10.1
 toml==0.10.2
@@ -49,4 +66,5 @@ tqdm==4.51.0
 trimesh==3.8.15
 typing-extensions==3.7.4.3
 urllib3==1.25.11
+webencodings==0.5.1
 Werkzeug==1.0.1
