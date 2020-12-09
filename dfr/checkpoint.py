@@ -7,9 +7,19 @@ from .sdfNetwork import SDFNetwork
 from .generator import Generator
 from .raycast import MultiscaleFrustum
 from .hparams import HParams
+from .positional import createBasis
 
 class Checkpoint:
-    def __init__(self, runDir, version=None, epoch=None, device=None, gradientData=False):
+    def __init__(self,
+                 runDir,
+                 version=None,
+                 epoch=None,
+                 device=None,
+                 gradientData=False,
+                 hparams=None,
+                 disableOutput=False):
+        self.disableOutput = disableOutput
+
         if version:
             # load version if given
             self.loc = runDir / version
@@ -41,12 +51,19 @@ class Checkpoint:
 
             version = str(max(versions) + 1)
             self.loc = runDir / version
-            self.loc.mkdir(exist_ok=True)
+
+            if not disableOutput:
+                self.loc.mkdir(exist_ok=True)
+
             checkpoint = None
             self.hparams = HParams()
             self.startEpoch = 0
 
-        sdf = SDFNetwork(self.hparams)
+        if hparams:
+            self.hparams = hparams
+
+        basis = createBasis(self.hparams.positional, device)
+        sdf = SDFNetwork(self.hparams, basis).to(device)
         frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)
         self.gen = Generator(sdf, frustum, self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
@@ -65,10 +82,16 @@ class Checkpoint:
             self.disOpt.load_state_dict(checkpoint['dis_opt'])
 
         self.version = version
-        self.logger = SummaryWriter(log_dir=self.loc)
+
+        if not disableOutput:
+            self.logger = SummaryWriter(log_dir=self.loc)
+
         self.gradientData = gradientData
 
     def save(self, epoch, overwrite=True):
+        if self.disableOutput:
+            return
+
         if overwrite:
             for file in self.loc.glob("*.pt"):
                 file.unlink()
@@ -83,6 +106,9 @@ class Checkpoint:
             }, self.loc / f"e{epoch}.pt")
 
     def log(self, data, idx):
+        if self.disableOutput:
+            return
+
         if 'generator_loss' in data:
             self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
             self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)

@@ -48,10 +48,10 @@ def iterData(dataloader, device):
         for data in loader:
             yield data.to(device)
 
-def makeDataloader(batchSize, dataset, device):
+def makeDataloader(batchSize, dataset, device, workers=1):
     # num_workers=1 because dataset is already in RAM
     return iterData(DataLoader(dataset,
             batch_size=batchSize,
             pin_memory=True,
             shuffle=True,
-            num_workers=1), device=device)
+            num_workers=workers), device=device)
