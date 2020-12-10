@@ -1,15 +1,12 @@
 from tqdm import tqdm
 from .optim import stepGenerator, stepDiscriminator
-from torch.cuda.amp import GradScaler
 
-def train(dataloader, steps, ckpt):
-    gradScaler = GradScaler(init_scale=32768.)
-
+def train(dataloader, steps, ckpt, logger):
     for idx in tqdm(range(ckpt.startEpoch, steps),
                     initial=ckpt.startEpoch,
                     total=steps):
         batch = next(dataloader)
-        generated, normals = ckpt.gen.sample_like(batch, gradScaler)
+        generated, normals = ckpt.gen.sample_like(batch, ckpt.gradScaler)
         logData = {'fake': generated, 'real': batch}
 
         # update the generator every nth iteration
@@ -19,18 +16,19 @@ def train(dataloader, steps, ckpt):
                                     ckpt.dis,
                                     ckpt.genOpt,
                                     ckpt.hparams.eikonalFactor,
-                                    gradScaler)
+                                    ckpt.gradScaler)
             logData.update(genData)
 
         # update the discriminator
-        disData = stepDiscriminator(generated, batch, ckpt.dis, ckpt.disOpt, gradScaler)
+        disData = stepDiscriminator(generated, batch, ckpt.dis, ckpt.disOpt, ckpt.gradScaler)
         logData.update(disData)
 
         # step the gradient scaler
-        gradScaler.update()
+        ckpt.gradScaler.update()
 
-        # write the log output
-        ckpt.log(logData, idx)
+        if logger is not None:
+            # write the log output
+            logger.log(logData, idx)
 
         # save every 100 iterations
         if idx % 100 == 0:

@@ -1,13 +1,10 @@
 import torch
-import re
-import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
-from .hparams import HParams
 from .train import train
-from .dataset import ImageDataset
-from .checkpoint import Checkpoint
-from .dataset import makeDataloader
+from .dataset import ImageDataset, makeDataloader
+from .ckpt import Checkpoint
+from .logger import Logger
 
 def main():
     parser = ArgumentParser()
@@ -71,12 +68,12 @@ def main():
 
     runDir = Path.cwd() / 'runs'
     runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(runDir,
-                      version=args.ckpt,
-                      epoch=None,
-                      device=device,
-                      gradientData=args.debug_grad,
-                      disableOutput=args.no_log)
+    ckpt = Checkpoint(runDir, version=args.ckpt, device=device)
+
+    if args.no_log:
+        logger = None
+    else:
+        logger = Logger(loc=ckpt.loc, gradientData=args.debug_grad)
 
     print(ckpt.hparams)
     dataset = ImageDataset(Path(args.data),
@@ -87,7 +84,7 @@ def main():
                                 dataset,
                                 device,
                                 workers=0 if args.profile else 1)
-    train(dataloader, steps=int(args.steps), ckpt=ckpt)
+    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     main()
