@@ -1,13 +1,10 @@
 import torch
-import re
-import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
-from .hparams import HParams
 from .train import train
-from .dataset import ImageDataset
-from .checkpoint import Checkpoint
-from .dataset import makeDataloader
+from .dataset import ImageDataset, makeDataloader
+from .ckpt import Checkpoint
+from .logger import Logger
 
 def main():
     parser = ArgumentParser()
@@ -62,48 +59,37 @@ def main():
         help='Save nothing to disk'
     )
     parser.add_argument(
-        '--override-hp',
-        dest='override_hp',
-        action='store_true',
-        default=False,
-        help='Override the checkpoint hyperparameters with those from hparams.py'
+        '--run-dir',
+        '-r',
+        dest='runDir',
     )
     args = parser.parse_args()
+    runDir = Path(args.runDir) if args.runDir else Path.cwd() / 'runs'
 
     if torch.cuda.is_available():
         print('Discovered gpu.')
         device = torch.device('cuda')
     else:
-        print('No gpu, falling back to cpu.')
-        device = torch.device('cpu')
+        raise Exception('No GPU available! Cannot proceed.')
 
-    if args.override_hp:
-        hp = HParams()
-    else:
-        hp = None
-
-    runDir = Path.cwd() / 'runs'
     runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(runDir,
-                      version=args.ckpt,
-                      epoch=None,
-                      device=device,
-                      gradientData=args.debug_grad,
-                      hparams=hp,
-                      disableOutput=args.no_log)
-    print(ckpt.hparams)
-    imageSize = ckpt.gen.frustum.imageSize
+    ckpt = Checkpoint(runDir, version=args.ckpt, device=device)
 
-    # don't have the explicit image size, so compute it from the raycast scales
+    if args.no_log:
+        logger = None
+    else:
+        logger = Logger(ckpt, gradientData=args.debug_grad)
+
+    print(ckpt.hparams)
     dataset = ImageDataset(Path(args.data),
                            firstN=int(args.dlim) if args.dlim else None,
-                           imageSize=imageSize)
+                           imageSize=ckpt.gen.frustum.imageSize)
 
     dataloader = makeDataloader(int(args.batch),
                                 dataset,
                                 device,
                                 workers=0 if args.profile else 1)
-    train(dataloader, steps=int(args.steps), ckpt=ckpt)
+    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     main()

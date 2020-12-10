@@ -5,7 +5,7 @@ from torch.cuda.amp import GradScaler
 import numpy as np
 import matplotlib.pyplot as plt
 from dfr.hparams import HParams
-from dfr.checkpoint import Checkpoint
+from dfr.ckpt import Checkpoint
 from dfr.raycast import raycast, MultiscaleFrustum
 from dfr.sdfNetwork import SDFNetwork
 
@@ -39,7 +39,6 @@ def main(args):
     if args.ckpt:
         ckpt = Checkpoint(Path.cwd() / 'runs',
                           version=args.ckpt,
-                          epoch=None,
                           device=device)
         hp = ckpt.hparams
         sdf = ckpt.gen.sdf

@@ -1,3 +1,7 @@
+# Issues
+## Soft edges
+Disabling soft shading on the color channels significantly decreases the Eikonal loss, implying that the soft shading is being used to compensate for geometry.
+
 # Renderer
 The renderer uses multiple passes in increasing resolution to approximately figure out where the object is, with autograd disabled, and does a final evaluation on the critical points with autograd on. The speed of the renderer is bound to the total number of SDF queries, and the memory usage is tied to the number of queries in the final pass (due to autograd). It's possible to decrease the mean memory usage by basing the density of the final evaluation on the resolution used at a certain pixel, but this introduces some grid artifacts. Also, decreasing the mean is unhelpful, since the max usage determines the batch size. This algorithm is available on the branch `memory`.
 

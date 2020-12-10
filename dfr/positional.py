@@ -1,18 +1,20 @@
 import torch
 import numpy as np
 
-def createBasis(L, device):
-    # [2^0 pi, 2^1 pi, ...]
-    b = (2.0 ** torch.linspace(0, L - 1, L, device=device)) * np.pi
-    return b.view(1, L, 1)
+def createBasis(L, sigma, device):
+    # create an Lx3 matrix
+    # by the function of random variables formula, multiplying by
+    # the SD makes the result distributed with that SD
+    return 2. * np.pi * torch.randn(L, 3, device=device) * sigma
 
 # positional encoding from NeRF
 def positional(x, basis, inplace=False):
-    arg = (x.view(-1, 1, 3) * basis).view(-1, 3 * basis.shape[1])
+    arg = x @ basis.T
     sin = torch.sin(arg)
-    # TODO: do the second function in-place
+
     if inplace:
         cos = torch.cos_(arg)
     else:
         cos = torch.cos(arg)
+
     return sin, cos

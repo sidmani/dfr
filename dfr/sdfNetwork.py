@@ -6,25 +6,25 @@ from .positional import positional
 class SDFNetwork(nn.Module):
     def __init__(self, hparams, basis, width=512):
         super().__init__()
-        inputSize = hparams.latentSize + 3 * hparams.positional * 2
+        inputSize = hparams.latentSize + hparams.positionalSize * 2
 
         self.layers = nn.ModuleList([
             nn.Linear(inputSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
-            nn.Linear(width, width - inputSize),
+            nn.Linear(width, width),
             # skip connection from input into 5th layer
         ])
 
         self.sdfLayers = nn.ModuleList([
-            nn.Linear(width, width),
+            nn.Linear(width + inputSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, 1),
         ])
 
         self.txLayers = nn.ModuleList([
-            nn.Linear(width, width),
+            nn.Linear(width + inputSize, width),
             nn.Linear(width, width),
             nn.Linear(width, width),
             nn.Linear(width, 3),

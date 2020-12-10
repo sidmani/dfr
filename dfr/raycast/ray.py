@@ -94,7 +94,6 @@ def sphereTrace(rays, origin, planes, latents, sdf, steps, threshold, dtype):
     minValues = 5.0 * torch.ones(rays.shape[0], device=device, dtype=dtype)
     mask = torch.ones_like(minValues, dtype=torch.bool)
 
-    # all sampled points are on concentric circles unless starting distance is random
     distance = torch.ones_like(minValues) * (2.0 / steps)
     minDistances = torch.ones_like(minValues) * distance
 

@@ -55,8 +55,8 @@ def stepGenerator(fake, normals, dis, genOpt, eikonalFactor, gradScaler):
     # so we have to run the discriminator again
     # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
     # discriminator takes only 1/200 the time of the generator pass, so not a problem
-    return {'generator_loss': genLoss,
-            'eikonal_loss': eikonalLoss}
+    return {'generator_loss': genLoss.detach(),
+            'eikonal_loss': eikonalLoss.detach()}
 
 def stepDiscriminator(fake, real, dis, disOpt, gradScaler):
     # the generator's not gonna be updated, so detach it from the grad graph
@@ -77,6 +77,6 @@ def stepDiscriminator(fake, real, dis, disOpt, gradScaler):
 
     disOpt.zero_grad(set_to_none=True)
 
-    return {'discriminator_real': disReal,
-            'discriminator_fake': disFake,
-            'discriminator_total': disLoss}
+    return {'discriminator_real': disReal.detach(),
+            'discriminator_fake': disFake.detach(),
+            'discriminator_total': disLoss.detach()}

@@ -84,6 +84,6 @@ def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3):
 
         # shift the exponential over so that f(threshold) = 1, and clip anything to the left of that
         opacityMask = torch.exp(-10.0 * (values - threshold)).clamp(max=1.0)
-        result[sphereMask] = torch.cat([opacityMask * illum * textures, opacityMask], dim=1)
+        result[sphereMask] = torch.cat([illum * opacityMask * textures, opacityMask], dim=1)
 
         return result.permute(0, 3, 1, 2), normals
