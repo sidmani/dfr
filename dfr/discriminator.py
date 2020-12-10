@@ -12,7 +12,8 @@ class Discriminator(nn.Module):
             nn.Conv2d(fmapSize, fmapSize * 2, 4, 2, 1),
             nn.Conv2d(fmapSize * 2, fmapSize * 4, 4, 2, 1),
             nn.Conv2d(fmapSize * 4, fmapSize * 8, 4, 2, 1),
-            nn.Conv2d(fmapSize * 8, 1, 4, 2, 0)
+            nn.Conv2d(fmapSize * 8, 1, 4, 2, 0),
+            # nn.Conv2d(fmapSize * 16, 1, 4, 2, 0)
         ])
 
         # weight init, according to DC-GAN

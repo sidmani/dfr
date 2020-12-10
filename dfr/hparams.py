@@ -9,7 +9,8 @@ HParams = namedtuple('HParams', [
         'latentStd',
         'fov',
         'eikonalFactor',
-        'positional',
+        'positionalSize',
+        'positionalScale',
         'raycastSteps',
     ], defaults=[
         1e-4, # learningRate
@@ -26,6 +27,7 @@ HParams = namedtuple('HParams', [
         # If it's too large (around 2.5), the SDF is hard to edit, so textures are modified instead
         # Too low (0.1) and the SDF coalesces slowly or not at all
         1.0, # eikonalFactor
-        6, # positional encoding (# of frequencies)
-        [(32, 16), (4, 16)], # raycast steps
+        128, # size of positional encoding
+        1.0, # stddev of positional encoding
+        [(32, 16), (2, 16)], # raycast steps
     ])

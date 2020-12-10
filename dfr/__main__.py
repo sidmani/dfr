@@ -61,26 +61,13 @@ def main():
         default=False,
         help='Save nothing to disk'
     )
-    parser.add_argument(
-        '--override-hp',
-        dest='override_hp',
-        action='store_true',
-        default=False,
-        help='Override the checkpoint hyperparameters with those from hparams.py'
-    )
     args = parser.parse_args()
 
     if torch.cuda.is_available():
         print('Discovered gpu.')
         device = torch.device('cuda')
     else:
-        print('No gpu, falling back to cpu.')
-        device = torch.device('cpu')
-
-    if args.override_hp:
-        hp = HParams()
-    else:
-        hp = None
+        raise Exception('No GPU available! Cannot proceed.')
 
     runDir = Path.cwd() / 'runs'
     runDir.mkdir(exist_ok=True)
@@ -89,15 +76,12 @@ def main():
                       epoch=None,
                       device=device,
                       gradientData=args.debug_grad,
-                      hparams=hp,
                       disableOutput=args.no_log)
-    print(ckpt.hparams)
-    imageSize = ckpt.gen.frustum.imageSize
 
-    # don't have the explicit image size, so compute it from the raycast scales
+    print(ckpt.hparams)
     dataset = ImageDataset(Path(args.data),
                            firstN=int(args.dlim) if args.dlim else None,
-                           imageSize=imageSize)
+                           imageSize=ckpt.gen.frustum.imageSize)
 
     dataloader = makeDataloader(int(args.batch),
                                 dataset,

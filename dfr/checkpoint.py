@@ -16,7 +16,6 @@ class Checkpoint:
                  epoch=None,
                  device=None,
                  gradientData=False,
-                 hparams=None,
                  disableOutput=False):
         self.disableOutput = disableOutput
 
@@ -41,6 +40,7 @@ class Checkpoint:
 
             self.hparams = checkpoint['hparams']
             self.startEpoch = checkpoint['epoch'] + 1
+            self.basis = checkpoint['basis']
         else:
             # otherwise create a new version
             versions = [-1]
@@ -58,12 +58,9 @@ class Checkpoint:
             checkpoint = None
             self.hparams = HParams()
             self.startEpoch = 0
+            self.basis = createBasis(self.hparams.positionalSize, self.hparams.positionalScale, device)
 
-        if hparams:
-            self.hparams = hparams
-
-        basis = createBasis(self.hparams.positional, device)
-        sdf = SDFNetwork(self.hparams, basis).to(device)
+        sdf = SDFNetwork(self.hparams, self.basis).to(device)
         frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)
         self.gen = Generator(sdf, frustum, self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
@@ -102,6 +99,7 @@ class Checkpoint:
             'dis': self.dis.state_dict(),
             'gen_opt': self.genOpt.state_dict(),
             'dis_opt': self.disOpt.state_dict(),
+            'basis': self.basis,
             'epoch': epoch,
             }, self.loc / f"e{epoch}.pt")
 
