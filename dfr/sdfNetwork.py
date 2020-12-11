@@ -46,34 +46,11 @@ class SDFNetwork(nn.Module):
         # DeepSDF uses ReLU, SALD uses Softplus
         self.activation = nn.ReLU()
 
-    # this must be run with no_grad
-    def forward_inplace(self, pts, allLatents, mask):
-        expandedLatents = allLatents[mask]
-        sin, cos = positional(pts, self.basis, inplace=True)
-        inp = torch.cat([sin, cos, expandedLatents], dim=1)
-        del sin
-        del cos
-        del expandedLatents
-
-        a = inp
-        for i in range(4):
-            a = self.activation(self.layers[i](a))
-
-        # skip connection
-        a = torch.cat([inp, a], dim=1)
-        del inp
-
-        # sdf portion
-        for i in range(3):
-            a = self.activation(self.sdfLayers[i](a))
-
-        return self.sdfLayers[3](a)
-
-    def forward(self, pts, expandedLatents):
+    def forward(self, pts, allLatents, mask, geomOnly=False):
         sin, cos = positional(pts, self.basis)
 
         # a single cat operation here saves a lot of memory
-        inp = torch.cat([sin, cos, expandedLatents], dim=1)
+        inp = torch.cat([sin, cos, allLatents[mask]], dim=1)
         del sin, cos
 
         r = inp
@@ -86,9 +63,13 @@ class SDFNetwork(nn.Module):
 
         # sdf portion
         sdf = r
+        if geomOnly:
+            del r
         for i in range(3):
             sdf = self.activation(self.sdfLayers[i](sdf))
         sdf = self.sdfLayers[3](sdf)
+        if geomOnly:
+            return sdf
 
         # texture portion
         tx = r

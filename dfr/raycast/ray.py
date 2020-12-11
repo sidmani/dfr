@@ -87,7 +87,7 @@ def multiscale(axes, frustum, latents, sdf, dtype, threshold):
 
     # use the lowest-resolution mask, because the high res mask includes unsampled rays
     sphereMask = upsample(frustum.mask[0], frustum.imageSize // frustum.scales[0]).expand(batch, -1, -1)
-    return points[sphereMask], expandedLatents[sphereMask], sphereMask
+    return points, expandedLatents, sphereMask
 
 def sphereTrace(rays, origin, planes, latents, sdf, steps, threshold, dtype):
     device = rays.device
@@ -109,7 +109,7 @@ def sphereTrace(rays, origin, planes, latents, sdf, steps, threshold, dtype):
 
         # evaluate the targets
         with autocast():
-            values = sdf.forward_inplace(targets, latents, mask).squeeze(1).type(dtype)
+            values = sdf(targets, latents, mask, geomOnly=True).squeeze(1).type(dtype)
 
         del targets
 
@@ -121,19 +121,20 @@ def sphereTrace(rays, origin, planes, latents, sdf, steps, threshold, dtype):
         updateMask = torch.zeros_like(mask)
         updateMask[mask] = minMask
 
+        floatMask = updateMask.float()
         # update min and argmin
+        minDistances = (1 - floatMask) * minDistances + floatMask * distance
         minValues[updateMask] = values[minMask]
-        minDistances[updateMask] = distance[updateMask]
-
 
         # terminate all rays that intersect the surface (negated)
         intersectMask = values > threshold
 
         # terminate rays that exit the unit sphere on the next step (again negated)
-        maskedPlanes = planes[mask.expand(2, -1)].view(2, -1)
-        exitMask = (maskedPlanes[0] + distance[mask]) < maskedPlanes[1]
+        maskedPlanes = planes * mask.float().expand(2, -1)
+        exitMask = (maskedPlanes[0] + distance) < maskedPlanes[1]
 
         distance[mask] += values
-        mask[mask] = torch.logical_and(intersectMask, exitMask)
+        mask[mask] = intersectMask
+        mask = torch.logical_and(mask, exitMask)
 
     return minValues, minDistances

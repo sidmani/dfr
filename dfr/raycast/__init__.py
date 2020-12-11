@@ -50,11 +50,12 @@ def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3):
         axes = rotateAxes(phis, thetas)
         # run the raycasting in half precision
         critPoints, latents, sphereMask = multiscale(axes, frustum, latents, sdf, dtype=torch.float, threshold=threshold)
+        critPoints = critPoints[sphereMask]
     critPoints.requires_grad = True
 
     with autocast():
         # sample the critical points with autograd enabled
-        values, textures = sdf(critPoints, latents)
+        values, textures = sdf(critPoints, latents, sphereMask)
     del latents
 
     # compute normals

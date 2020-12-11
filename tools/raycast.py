@@ -17,10 +17,8 @@ class MockSDFSphere:
         return torch.norm(x, dim=1) - 0.75
 
 class MockSDFCube:
-    def forward_inplace(self, x, latents, mask):
-        return self(x, latents[mask], geomOnly=True)
-
-    def __call__(self, x, latents, geomOnly=False):
+    def __call__(self, x, latents, mask, geomOnly=False):
+        latents = latents[mask]
         global count
         count += x.shape[0]
         box = latents[:, 3:6]

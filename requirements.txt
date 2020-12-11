@@ -30,7 +30,6 @@ nvidia-dlprof==0.17.0
 nvidia-nsys-cli==2020.4.1.117
 nvidia-pyindex==1.0.5
 nvidia-pyprof==3.6.0
-nvidia-tensorboard==1.15.0+nv20.11
 nvidia-tensorboard-plugin-dlprof==0.9
 oauthlib==3.1.0
 packaging==20.4
@@ -56,7 +55,7 @@ scikit-image==0.17.2
 scipy==1.5.4
 six==1.15.0
 tabulate==0.8.7
-tensorboard @ https://pypi.ngc.nvidia.com/tensorboard/tensorboard-1.15.0-py2.py3-none-any.whl
+tensorboard==2.4.0
 tensorboard-plugin-wit==1.7.0
 tifffile==2020.10.1
 toml==0.10.2
