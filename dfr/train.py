@@ -1,62 +1,57 @@
 import torch
-from torch.cuda.amp import autocast
 import numpy as np
 from .raycast import raycast
 from tqdm import tqdm
 from .optim import stepGenerator, stepDiscriminator
 
-def sample_like(other, device, stdDev, phi):
-    batch = other.shape[0]
-    with torch.no_grad(), autocast:
-        phis = torch.ones(batch, device=device) * phi
-        thetas = torch.rand_like(phis) * (2.0 * np.pi)
-
-def train(dataloader, steps, ckpt, logger, debugGenerator=False):
+def train(dataloader, steps, ckpt, logger):
     for idx in tqdm(range(ckpt.startEpoch, steps),
                     initial=ckpt.startEpoch,
                     total=steps):
-        batch = next(dataloader)
+        loop(dataloader, ckpt, logger, idx)
 
-        # sample the generator
-        device = batch.device
-        batchSize = batch.shape[0]
-        phis = torch.ones(batchSize, device=device) * (np.pi / 6.0)
-        thetas = torch.rand_like(phis) * (2.0 * np.pi)
-        z = torch.normal(0.0,
-                         ckpt.hparams.latentStd,
-                         size=(batchSize, ckpt.hparams.latentSize),
-                         device=device)
-        sampled = raycast(phis, thetas, ckpt.frustum, z, ckpt.gen, ckpt.gradScaler, debug=debugGenerator)
+# separate the loop function to make sure all variables go out of scope
+# otherwise memory may not be freed, causing 2x max memory usage
+def loop(dataloader, ckpt, logger, idx):
+    batch = next(dataloader)
 
-        fake = sampled['image']
-        logData = {'fake': fake, 'real': batch}
-        if debugGenerator:
-            logData['normalMap'] = sampled['normalMap']
-            logData['normalSizeMap'] = sampled['normalSizeMap']
+    # sample the generator
+    device = batch.device
+    batchSize = batch.shape[0]
+    phis = torch.ones(batchSize, device=device) * (np.pi / 6.0)
+    thetas = torch.rand_like(phis) * (2.0 * np.pi)
+    z = torch.normal(0.0,
+                     ckpt.hparams.latentStd,
+                     size=(batchSize, ckpt.hparams.latentSize),
+                     device=device)
+    sampled = raycast(phis, thetas, ckpt.frustum, z, ckpt.gen, ckpt.gradScaler)
 
-        # update the generator every nth iteration
-        if idx % ckpt.hparams.discIter == 0:
-            genData = stepGenerator(fake,
-                                    sampled['normals'],
-                                    sampled['illum'],
-                                    ckpt.dis,
-                                    ckpt.genOpt,
-                                    ckpt.hparams.eikonalFactor,
-                                    ckpt.hparams.illumFactor,
-                                    ckpt.gradScaler)
-            logData.update(genData)
+    fake = sampled['image']
+    logData = {'fake': fake, 'real': batch}
 
-        # update the discriminator
-        disData = stepDiscriminator(fake, batch, ckpt.dis, ckpt.disOpt, ckpt.gradScaler)
-        logData.update(disData)
+    # update the generator every nth iteration
+    if idx % ckpt.hparams.discIter == 0:
+        genData = stepGenerator(fake,
+                                sampled['normals'],
+                                sampled['illum'],
+                                ckpt.dis,
+                                ckpt.genOpt,
+                                ckpt.hparams.eikonalFactor,
+                                ckpt.hparams.illumFactor,
+                                ckpt.gradScaler)
+        logData.update(genData)
 
-        # step the gradient scaler
-        ckpt.gradScaler.update()
+    # update the discriminator
+    disData = stepDiscriminator(fake, batch, ckpt.dis, ckpt.disOpt, ckpt.gradScaler)
+    logData.update(disData)
 
-        if logger is not None:
-            # write the log output
-            logger.log(logData, idx)
+    # step the gradient scaler
+    ckpt.gradScaler.update()
 
-        # save every 100 iterations
-        if idx % 100 == 0:
-            ckpt.save(idx)
+    if logger is not None:
+        # write the log output
+        logger.log(logData, idx)
+
+    # save every 100 iterations
+    if idx % 100 == 0:
+        ckpt.save(idx)

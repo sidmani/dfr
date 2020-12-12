@@ -5,7 +5,6 @@ from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
 from .raycast import MultiscaleFrustum
 from .hparams import HParams
-from .positional import createBasis
 from torch.cuda.amp import GradScaler
 
 def latestEpoch(loc):
@@ -32,7 +31,9 @@ def nextVersion(runDir):
     return str(max(versions) + 1)
 
 class Checkpoint:
-    def __init__(self, runDir, version, device):
+    def __init__(self, runDir, version, device, noLog=False):
+        self.noLog = noLog
+
         # if no version is provided, create one
         if version is None:
             version = nextVersion(runDir)
@@ -47,10 +48,10 @@ class Checkpoint:
             self.hparams = ckpt['hparams']
             self.examples = ckpt['examples']
             self.startEpoch = epoch + 1
-            self.basis = ckpt['basis']
         else:
             ckpt = None
-            self.loc.mkdir(exist_ok=True)
+            if not noLog:
+                self.loc.mkdir(exist_ok=True)
             self.hparams = HParams()
             self.examples = torch.normal(
                     mean=0.0,
@@ -58,12 +59,9 @@ class Checkpoint:
                     size=(3, self.hparams.latentSize),
                     device=device)
             self.startEpoch = 0
-            self.basis = createBasis(self.hparams.positionalSize,
-                                     self.hparams.positionalScale,
-                                     device=device)
 
         self.frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)
-        self.gen = SDFNetwork(self.hparams, self.basis).to(device)
+        self.gen = SDFNetwork(self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
         self.gradScaler = GradScaler(init_scale=32768.)
 
@@ -82,6 +80,9 @@ class Checkpoint:
             self.gradScaler.load_state_dict(ckpt['gradScaler'])
 
     def save(self, epoch, overwrite=True):
+        if self.noLog:
+            return
+
         # TODO: FID top-5
         if overwrite:
             for file in self.loc.glob("*.pt"):
@@ -95,5 +96,4 @@ class Checkpoint:
             'dis_opt': self.disOpt.state_dict(),
             'gradScaler': self.gradScaler.state_dict(),
             'examples': self.examples,
-            'basis': self.basis,
             }, self.loc / f"e{epoch}.pt")

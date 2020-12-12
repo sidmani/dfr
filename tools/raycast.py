@@ -44,7 +44,8 @@ def main(args):
     else:
         hp = HParams()
         sdf = MockSDFCube()
-        latents = torch.zeros(2, hp.latentSize, device=device, dtype=dtype)
+        latentSize = 6
+        latents = torch.zeros(2, latentSize, device=device, dtype=dtype)
         latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
         latents[1, :6] = torch.tensor([1.0, 0.0, 0.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
 
@@ -53,7 +54,7 @@ def main(args):
     frustum = MultiscaleFrustum(hp.fov, hp.raycastSteps, device=device)
 
     scaler = GradScaler(init_scale=32768.)
-    ret = raycast(phis, thetas, frustum, latents, sdf, scaler, debug=True)
+    ret = raycast(phis, thetas, frustum, latents, sdf, scaler)
     out = ret['image']
 
     print(f"{count} SDF queries.")
@@ -63,19 +64,11 @@ def main(args):
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 
-    nmaps = ret['normalMap'].cpu().detach().permute(0, 2, 3, 1).numpy()
-    nsizemap = ret['normalSizeMap'].cpu().detach().numpy()
-
-    fig, axs = plt.subplots(4, 2)
+    fig, axs = plt.subplots(2, 2)
     axs[0, 0].imshow(obj1)
     axs[0, 1].imshow(obj2)
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
-    axs[2, 0].imshow(nmaps[0])
-    axs[2, 1].imshow(nmaps[1])
-    axs[3, 0].imshow(nsizemap[0])
-    axs[3, 1].imshow(nsizemap[1])
-
     plt.show()
 
 if __name__ == "__main__":

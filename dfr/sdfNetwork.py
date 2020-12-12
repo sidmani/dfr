@@ -1,72 +1,93 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from .positional import positional
+
+class SineLayer(nn.Module):
+    # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of omega_0.
+
+    # If is_first=True, omega_0 is a frequency factor which simply multiplies the activations before the
+    # nonlinearity. Different signals may require different omega_0 in the first layer - this is a
+    # hyperparameter.
+
+    # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of
+    # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
+
+    def __init__(self, in_features, out_features, bias=True,
+                 is_first=False, omega_0=30.0):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+
+        self.in_features = in_features
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+
+        self.init_weights()
+
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.in_features,
+                                             1 / self.in_features)
+            else:
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
+                                             np.sqrt(6 / self.in_features) / self.omega_0)
+
+    def forward(self, input, gamma, beta):
+        return torch.sin(self.omega_0 * (self.linear(input) * gamma + beta))
+
+    def forward_debug(self, input, gamma, beta):
+        z = self.omega_0 * (gamma * self.linear(input) + beta)
+        return z, torch.sin(z)
 
 class SDFNetwork(nn.Module):
-    def __init__(self, hparams, basis, width=512):
+    def __init__(self, hparams, width=512, filmWidth=512):
         super().__init__()
-        inputSize = hparams.latentSize + hparams.positionalSize * 2
+
+        self.width = width
+        filmActivation = nn.LeakyReLU(0.2)
+        self.film = nn.Sequential(
+            nn.Linear(hparams.latentSize, filmWidth),
+            filmActivation,
+            nn.Linear(filmWidth, filmWidth),
+            filmActivation,
+            nn.Linear(filmWidth, width * 2),
+        )
 
         self.layers = nn.ModuleList([
-            nn.Linear(inputSize, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
+            SineLayer(3, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
             # skip connection from input into 5th layer
         ])
 
         self.sdfLayers = nn.ModuleList([
-            nn.Linear(width + inputSize, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
             nn.Linear(width, 1),
         ])
 
         self.txLayers = nn.ModuleList([
-            nn.Linear(width + inputSize, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.sineOmega),
             nn.Linear(width, 3),
         ])
 
-        self.basis = basis
-
-        self.hparams = hparams
-        if hparams.weightNorm:
-            for i in range(len(self.layers)):
-                self.layers[i] = nn.utils.weight_norm(self.layers[i])
-
-            for i in range(len(self.sdfLayers)):
-                self.sdfLayers[i] = nn.utils.weight_norm(self.sdfLayers[i])
-
-            for i in range(len(self.txLayers)):
-                self.txLayers[i] = nn.utils.weight_norm(self.txLayers[i])
-
-        # DeepSDF uses ReLU, SALD uses Softplus
-        self.activation = nn.ReLU()
-
     def forward(self, pts, allLatents, mask, geomOnly=False):
-        sin, cos = positional(pts, self.basis)
+        gamma, beta = torch.split(self.film(allLatents[mask]), self.width, dim=1)
 
-        # a single cat operation here saves a lot of memory
-        inp = torch.cat([sin, cos, allLatents[mask]], dim=1)
-        del sin, cos
-
-        r = inp
+        r = pts
         for i in range(4):
-            r = self.activation(self.layers[i](r))
-
-        # skip connection
-        r = torch.cat([inp, r], dim=1)
-        del inp
+            r = self.layers[i](r, gamma, beta)
 
         # sdf portion
         sdf = r
         if geomOnly:
             del r
         for i in range(3):
-            sdf = self.activation(self.sdfLayers[i](sdf))
+            sdf = self.sdfLayers[i](sdf, gamma, beta)
         sdf = self.sdfLayers[3](sdf)
         if geomOnly:
             return sdf
@@ -75,7 +96,7 @@ class SDFNetwork(nn.Module):
         tx = r
         del r
         for i in range(3):
-            tx = self.activation(self.txLayers[i](tx))
+            tx = self.txLayers[i](tx, gamma, beta)
         tx = torch.sigmoid(self.txLayers[3](tx))
 
         return sdf, tx

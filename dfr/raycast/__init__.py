@@ -43,7 +43,7 @@ class MultiscaleFrustum:
                    self.far,
                    self.mask)
 
-def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3, debug=False):
+def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3):
     batch = latents.shape[0]
     # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
@@ -92,14 +92,4 @@ def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3, deb
         ret['normals'] = normals
         ret['illum'] = unmaskedIllum
 
-        if debug:
-            with torch.no_grad():
-                normalMap = torch.zeros(batch, frustum.imageSize, frustum.imageSize, 3, device=phis.device)
-                normalMap[sphereMask] = (unitNormals + 1.) / 2.
-
-                normalSizeMap = torch.zeros(batch, frustum.imageSize, frustum.imageSize, device=phis.device)
-                # normalSizeMap[sphereMask] = (normalLength / normalLength.max(dim=1)[0].unsqueeze(1)).squeeze(1)
-                normalSizeMap[sphereMask] = torch.sigmoid(normalLength - 1.).squeeze(1)
-                ret['normalMap'] = normalMap.permute(0, 3, 1, 2)
-                ret['normalSizeMap'] = normalSizeMap
         return ret

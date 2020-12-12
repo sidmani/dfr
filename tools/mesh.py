@@ -5,13 +5,12 @@ from skimage import measure
 from trimesh import Trimesh, Scene
 from trimesh.viewer.windowed import SceneViewer
 from pathlib import Path
-from dfr.checkpoint import Checkpoint
+from dfr.ckpt import Checkpoint
 
 def main(args):
     device = torch.device('cuda')
     ckpt = Checkpoint(Path.cwd() / 'runs',
                       version=args.ckpt,
-                      epoch=args.epoch,
                       device=device)
 
     res = int(args.res)
@@ -37,13 +36,12 @@ def main(args):
 
         # create input vector and compute values
         # out, normals = gen.sdf(grid, latent)
-        out, tx = ckpt.gen.sdf(grid, expandedLatents)
+        out, tx = ckpt.gen(grid, expandedLatents, mask=None)
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
         cubic = torch.reshape(out, (res, res, res)).detach().cpu().numpy()
 
     verts, faces, normals, values = measure.marching_cubes(cubic, 0)
-    print(verts.shape)
     mesh = Trimesh(vertices=verts, faces=faces)
     scene = Scene([mesh])
     viewer = SceneViewer(scene)

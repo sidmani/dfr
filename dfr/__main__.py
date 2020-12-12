@@ -5,9 +5,9 @@ from .train import train
 from .dataset import ImageDataset, makeDataloader
 from .ckpt import Checkpoint
 from .logger import Logger
+from tools.memory import print_memory_stats
 
-def main():
-    parser = ArgumentParser()
+def setArgs(parser):
     parser.add_argument(
         '--data',
         '-d',
@@ -45,11 +45,12 @@ def main():
         help='Log discriminator gradient data to a Tensorboard histogram. Useful for debugging vanishing/exploding gradients and Lipschitz condition.'
     )
     parser.add_argument(
-        '--debug-gen',
-        dest='debug_gen',
+        '--debug-activations',
+        '-A',
+        dest='debug_act',
         action='store_true',
         default=False,
-        help='Log extra raycasting data (normal maps).'
+        help='Log the activation histogram of each layer.'
     )
     parser.add_argument(
         '--profile',
@@ -70,22 +71,24 @@ def main():
         '-r',
         dest='runDir',
     )
-    args = parser.parse_args()
+
+def main(args):
     runDir = Path(args.runDir) if args.runDir else Path.cwd() / 'runs'
 
     if torch.cuda.is_available():
-        print('Discovered gpu.')
         device = torch.device('cuda')
     else:
         raise Exception('No GPU available! Cannot proceed.')
 
     runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(runDir, version=args.ckpt, device=device)
+    ckpt = Checkpoint(runDir, version=args.ckpt, device=device, noLog=args.no_log)
 
     if args.no_log:
         logger = None
     else:
-        logger = Logger(ckpt, gradientData=args.debug_grad, genData=args.debug_gen)
+        logger = Logger(ckpt,
+                        gradientData=args.debug_grad,
+                        activations=args.debug_act)
 
     print(ckpt.hparams)
     dataset = ImageDataset(Path(args.data),
@@ -96,7 +99,11 @@ def main():
                                 dataset,
                                 device,
                                 workers=0 if args.profile else 1)
-    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger, debugGenerator=args.debug_gen)
+    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser()
+    setArgs(parser)
+    args = parser.parse_args()
+    main(args)
+    print_memory_stats()

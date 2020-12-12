@@ -4,9 +4,9 @@ from torch.utils.tensorboard import SummaryWriter
 from .raycast import raycast
 
 class Logger:
-    def __init__(self, ckpt, gradientData=False, genData=False):
+    def __init__(self, ckpt, gradientData=False, activations=False):
         self.gradientData = gradientData
-        self.genData = genData
+        self.activations = activations
         self.ckpt = ckpt
         self.logger = SummaryWriter(ckpt.loc)
 
@@ -15,8 +15,8 @@ class Logger:
 
         if idx % 50 == 0:
             self.writeImages(data, idx)
-            if self.genData:
-                self.writeGenData(data, idx)
+            if self.activations:
+                self.writeActivations(idx)
 
         if idx % 200 == 0:
             self.writeFixedSamples(idx)
@@ -44,6 +44,36 @@ class Logger:
         self.logger.add_image('real/real', real[0][:3], global_step=idx)
         self.logger.add_image('real/silhouette', real[0][3], dataformats='HW', global_step=idx)
 
+    def writeActivations(self, idx):
+        pts = torch.randn(100, 3, device=self.ckpt.examples.device)
+        latents = torch.normal(0.0,
+                               self.ckpt.hparams.latentStd,
+                               size=(100, self.ckpt.hparams.latentSize),
+                               device=pts.device)
+        z = []
+        activations = []
+        with torch.no_grad():
+            gamma, beta = torch.split(self.ckpt.gen.film(latents), 512, dim=1)
+            r = pts
+            for i in range(4):
+                lin, r = self.ckpt.gen.layers[i].forward_debug(r, gamma, beta)
+                z.append(lin)
+                activations.append(r)
+
+            # sdf portion
+            sdf = r
+            for i in range(3):
+                lin, sdf = self.ckpt.gen.sdfLayers[i].forward_debug(sdf, gamma, beta)
+                z.append(lin)
+                activations.append(sdf)
+
+        self.logger.add_histogram(f'gamma', gamma, global_step=idx)
+        self.logger.add_histogram(f'beta', beta, global_step=idx)
+
+        for i in range(len(z)):
+            self.logger.add_histogram(f'activation/{i}', activations[i], global_step=idx)
+            self.logger.add_histogram(f'linear/{i}', z[i], global_step=idx)
+
     def writeFixedSamples(self, idx):
         device = self.ckpt.examples.device
         phis = torch.ones(3, device=device) * np.pi / 6.
@@ -56,12 +86,6 @@ class Logger:
                        self.ckpt.gradScaler)
         imgs = result['image']
         self.logger.add_images('fake/fixed_sample', imgs[:, :3], global_step=idx)
-
-    def writeGenData(self, data, idx):
-        normalMap = data['normalMap']
-        normalSizeMap = data['normalSizeMap']
-        self.logger.add_image('fake/normal_direction', normalMap[0], global_step=idx)
-        self.logger.add_image('fake/normal_magnitude', normalSizeMap[0], dataformats='HW', global_step=idx)
 
     def writeGradientData(self, data, idx):
         fake = data['fake']
