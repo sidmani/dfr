@@ -43,7 +43,7 @@ class MultiscaleFrustum:
                    self.far,
                    self.mask)
 
-def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3):
+def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3, debug=False):
     batch = latents.shape[0]
     # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
@@ -68,11 +68,12 @@ def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3):
                 retain_graph=True,
                 only_inputs=True)[0]
     normals = scaledNormals / gradScaler.get_scale()
-
+    ret = {}
     with autocast():
         notHitMask = values > threshold
         # need epsilon in denominator for numerical stability
-        unitNormals = normals / (normals.norm(dim=1).unsqueeze(1) + 1e-5)
+        normalLength = (normals.norm(dim=1).unsqueeze(1) + 1e-5)
+        unitNormals = normals / normalLength
 
         # light is directed from camera
         light = axes[:, 2]
@@ -80,11 +81,25 @@ def raycast(phis, thetas, frustum, latents, sdf, gradScaler, threshold=5e-3):
         # TODO: the indexing here is likely unnecessary and slows the backward pass
         # scale dot product from [-1, 1] to [0, 1]
         illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(-1, 1, 3, 1)).view(-1, 1) + 1.0) / 2.0
+        unmaskedIllum = illum.clone()
         illum[notHitMask] = 1.0
         result = torch.zeros(batch, frustum.imageSize, frustum.imageSize, 4, device=phis.device)
 
         # shift the exponential over so that f(threshold) = 1, and clip anything to the left of that
         opacityMask = torch.exp(-10.0 * (values - threshold)).clamp(max=1.0)
         result[sphereMask] = torch.cat([illum * opacityMask * textures, opacityMask], dim=1)
+        ret['image'] = result.permute(0, 3, 1, 2)
+        ret['normals'] = normals
+        ret['illum'] = unmaskedIllum
 
-        return result.permute(0, 3, 1, 2), normals
+        if debug:
+            with torch.no_grad():
+                normalMap = torch.zeros(batch, frustum.imageSize, frustum.imageSize, 3, device=phis.device)
+                normalMap[sphereMask] = (unitNormals + 1.) / 2.
+
+                normalSizeMap = torch.zeros(batch, frustum.imageSize, frustum.imageSize, device=phis.device)
+                # normalSizeMap[sphereMask] = (normalLength / normalLength.max(dim=1)[0].unsqueeze(1)).squeeze(1)
+                normalSizeMap[sphereMask] = torch.sigmoid(normalLength - 1.).squeeze(1)
+                ret['normalMap'] = normalMap.permute(0, 3, 1, 2)
+                ret['normalSizeMap'] = normalSizeMap
+        return ret

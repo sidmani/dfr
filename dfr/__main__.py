@@ -45,6 +45,13 @@ def main():
         help='Log discriminator gradient data to a Tensorboard histogram. Useful for debugging vanishing/exploding gradients and Lipschitz condition.'
     )
     parser.add_argument(
+        '--debug-gen',
+        dest='debug_gen',
+        action='store_true',
+        default=False,
+        help='Log extra raycasting data (normal maps).'
+    )
+    parser.add_argument(
         '--profile',
         dest='profile',
         action='store_true',
@@ -78,18 +85,18 @@ def main():
     if args.no_log:
         logger = None
     else:
-        logger = Logger(ckpt, gradientData=args.debug_grad)
+        logger = Logger(ckpt, gradientData=args.debug_grad, genData=args.debug_gen)
 
     print(ckpt.hparams)
     dataset = ImageDataset(Path(args.data),
                            firstN=int(args.dlim) if args.dlim else None,
-                           imageSize=ckpt.gen.frustum.imageSize)
+                           imageSize=ckpt.frustum.imageSize)
 
     dataloader = makeDataloader(int(args.batch),
                                 dataset,
                                 device,
                                 workers=0 if args.profile else 1)
-    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger)
+    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger, debugGenerator=args.debug_gen)
 
 if __name__ == "__main__":
     main()

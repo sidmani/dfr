@@ -1,10 +1,12 @@
 import torch
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+from .raycast import raycast
 
 class Logger:
-    def __init__(self, ckpt, gradientData=False):
+    def __init__(self, ckpt, gradientData=False, genData=False):
         self.gradientData = gradientData
+        self.genData = genData
         self.ckpt = ckpt
         self.logger = SummaryWriter(ckpt.loc)
 
@@ -13,6 +15,8 @@ class Logger:
 
         if idx % 50 == 0:
             self.writeImages(data, idx)
+            if self.genData:
+                self.writeGenData(data, idx)
 
         if idx % 200 == 0:
             self.writeFixedSamples(idx)
@@ -24,6 +28,7 @@ class Logger:
         if 'generator_loss' in data:
             self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
             self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)
+            self.logger.add_scalar('generator/illum', data['illum_loss'], global_step=idx)
 
         self.logger.add_scalar('discriminator/fake', data['discriminator_fake'], global_step=idx)
         self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)
@@ -43,8 +48,20 @@ class Logger:
         device = self.ckpt.examples.device
         phis = torch.ones(3, device=device) * np.pi / 6.
         thetas = torch.tensor([-0.25, 0.0, 0.25], device=device) * np.pi
-        imgs, _ = self.ckpt.gen(phis, thetas, self.ckpt.examples, self.ckpt.gradScaler)
+        result = raycast(phis,
+                       thetas,
+                       self.ckpt.frustum,
+                       self.ckpt.examples,
+                       self.ckpt.gen,
+                       self.ckpt.gradScaler)
+        imgs = result['image']
         self.logger.add_images('fake/fixed_sample', imgs[:, :3], global_step=idx)
+
+    def writeGenData(self, data, idx):
+        normalMap = data['normalMap']
+        normalSizeMap = data['normalSizeMap']
+        self.logger.add_image('fake/normal_direction', normalMap[0], global_step=idx)
+        self.logger.add_image('fake/normal_magnitude', normalSizeMap[0], dataformats='HW', global_step=idx)
 
     def writeGradientData(self, data, idx):
         fake = data['fake']

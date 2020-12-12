@@ -53,7 +53,8 @@ def main(args):
     frustum = MultiscaleFrustum(hp.fov, hp.raycastSteps, device=device)
 
     scaler = GradScaler(init_scale=32768.)
-    out, normals = raycast(phis, thetas, frustum, latents, sdf, scaler)
+    ret = raycast(phis, thetas, frustum, latents, sdf, scaler, debug=True)
+    out = ret['image']
 
     print(f"{count} SDF queries.")
     print(out[0].shape)
@@ -62,11 +63,18 @@ def main(args):
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 
-    fig, axs = plt.subplots(2, 2)
+    nmaps = ret['normalMap'].cpu().detach().permute(0, 2, 3, 1).numpy()
+    nsizemap = ret['normalSizeMap'].cpu().detach().numpy()
+
+    fig, axs = plt.subplots(4, 2)
     axs[0, 0].imshow(obj1)
     axs[0, 1].imshow(obj2)
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
+    axs[2, 0].imshow(nmaps[0])
+    axs[2, 1].imshow(nmaps[1])
+    axs[3, 0].imshow(nsizemap[0])
+    axs[3, 1].imshow(nsizemap[1])
 
     plt.show()
 
