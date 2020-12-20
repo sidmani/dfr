@@ -39,13 +39,18 @@ if __name__ == "__main__":
         '-b',
         dest='batch',
         help='Batch size',
-        default=12,
+        default=18,
+    )
+    parser.add_argument(
+        '-e',
+        dest='epoch',
+        default=None,
     )
     parser.add_argument(
         '-o',
         dest='output',
         help='output directory',
-        default='out'
+        default=None,
     )
     parser.add_argument(
         '--run-dir',
@@ -57,10 +62,15 @@ if __name__ == "__main__":
     device = torch.device('cuda')
 
     runDir = Path(args.runDir) if args.runDir else Path.cwd() / 'runs'
-    ckpt = Checkpoint(runDir, version=args.ckpt, device=device)
+    epoch = int(args.epoch) if args.epoch else None
+    ckpt = Checkpoint(runDir, version=args.ckpt, device=device, epoch=epoch)
+    print(f'Loaded version {args.ckpt}, epoch {ckpt.startEpoch - 1}.')
     batch = int(args.batch)
     count = int(args.count)
-    out = Path(args.output)
+    if args.output:
+        out = Path(args.output)
+    else:
+        out = Path(f'{args.ckpt}_e{ckpt.startEpoch - 1}')
     out.mkdir(exist_ok=True)
 
     print(f'Generating {count} images in {count // batch} batches...')

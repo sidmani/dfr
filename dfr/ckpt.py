@@ -31,7 +31,7 @@ def nextVersion(runDir):
     return str(max(versions) + 1)
 
 class Checkpoint:
-    def __init__(self, runDir, version, device, noLog=False):
+    def __init__(self, runDir, version, device, epoch=None, noLog=False):
         self.noLog = noLog
 
         # if no version is provided, create one
@@ -40,7 +40,8 @@ class Checkpoint:
 
         # get the latest epoch for the provided version
         self.loc = runDir / version
-        epoch = latestEpoch(self.loc)
+        if epoch is None:
+            epoch = latestEpoch(self.loc)
 
         # if the version exists, load it
         if epoch is not None:
@@ -48,6 +49,7 @@ class Checkpoint:
             self.hparams = ckpt['hparams']
             self.examples = ckpt['examples']
             self.startEpoch = epoch + 1
+
         else:
             ckpt = None
             if not noLog:
