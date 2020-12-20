@@ -11,6 +11,7 @@ HParams = namedtuple('HParams', [
         'illumFactor',
         'raycastSteps',
         'sineOmega',
+        'sdfWidth',
     ], defaults=[
         1e-4, # learningRate
         (0.5, 0.9), # betas
@@ -28,4 +29,5 @@ HParams = namedtuple('HParams', [
         0.0, # illum factor
         [(32, 16), (2, 16)], # raycast steps
         1.0, # the SIREN omega_0 value
+        512,
     ])

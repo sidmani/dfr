@@ -24,7 +24,7 @@ def latestEpoch(loc):
 def nextVersion(runDir):
     versions = [-1]
     for f in runDir.glob('*'):
-        match = re.match('([0-9]+)', str(f.stem))
+        match = re.match('([0-9]+)$', str(f.stem))
         if match:
             versions.append(int(match[1]))
 

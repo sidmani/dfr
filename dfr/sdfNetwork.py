@@ -40,10 +40,13 @@ class SineLayer(nn.Module):
         return z, torch.sin(z)
 
 class SDFNetwork(nn.Module):
-    def __init__(self, hparams, width=512, filmWidth=512):
+    def __init__(self, hparams):
         super().__init__()
 
-        self.width = width
+        self.hparams = hparams
+        width = hparams.sdfWidth
+        filmWidth = hparams.sdfWidth
+
         filmActivation = nn.LeakyReLU(0.2)
         self.film = nn.Sequential(
             nn.Linear(hparams.latentSize, filmWidth),
@@ -58,7 +61,6 @@ class SDFNetwork(nn.Module):
             SineLayer(width, width, omega_0=hparams.sineOmega),
             SineLayer(width, width, omega_0=hparams.sineOmega),
             SineLayer(width, width, omega_0=hparams.sineOmega),
-            # skip connection from input into 5th layer
         ])
 
         self.sdfLayers = nn.ModuleList([
@@ -76,7 +78,7 @@ class SDFNetwork(nn.Module):
         ])
 
     def forward(self, pts, allLatents, mask, geomOnly=False):
-        gamma, beta = torch.split(self.film(allLatents[mask]), self.width, dim=1)
+        gamma, beta = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
 
         r = pts
         for i in range(4):
