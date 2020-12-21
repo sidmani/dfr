@@ -17,27 +17,29 @@ def loop(dataloader, ckpt, logger, idx):
 
     # sample the generator
     device = batch.device
+    hparams = ckpt.hparams
+
     batchSize = batch.shape[0]
     phis = torch.ones(batchSize, device=device) * (np.pi / 6.0)
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
     z = torch.normal(0.0,
-                     ckpt.hparams.latentStd,
-                     size=(batchSize, ckpt.hparams.latentSize),
+                     hparams.latentStd,
+                     size=(batchSize, hparams.latentSize),
                      device=device)
-    sampled = raycast(phis, thetas, ckpt.frustum, z, ckpt.gen, ckpt.gradScaler)
+    sampled = raycast(phis, thetas, hparams.raycastSteps, hparams.fov, z, ckpt.gen, ckpt.gradScaler)
 
     fake = sampled['image']
     logData = {'fake': fake, 'real': batch}
 
     # update the generator every nth iteration
-    if idx % ckpt.hparams.discIter == 0:
+    if idx % hparams.discIter == 0:
         genData = stepGenerator(fake,
                                 sampled['normals'],
                                 sampled['illum'],
                                 ckpt.dis,
                                 ckpt.genOpt,
-                                ckpt.hparams.eikonalFactor,
-                                ckpt.hparams.illumFactor,
+                                hparams.eikonalFactor,
+                                hparams.illumFactor,
                                 ckpt.gradScaler)
         logData.update(genData)
 

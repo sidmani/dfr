@@ -27,7 +27,7 @@ HParams = namedtuple('HParams', [
         # Too low (0.1) and the SDF coalesces slowly or not at all
         50.0, # eikonalFactor
         0.0, # illum factor
-        [(32, 16), (2, 16)], # raycast steps
+        [32, 2], # raycast steps
         1.0, # the SIREN omega_0 value
         512,
     ])

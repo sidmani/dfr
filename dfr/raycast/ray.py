@@ -16,7 +16,9 @@ def rotateAxes(phis, thetas):
         torch.cat([-sin_theta, -sin_phi * cos_theta, cos_phi * cos_theta], dim=1).unsqueeze(2),
     ], dim=2)
 
-def makeRays(axes, px, D, edge, dtype):
+def makeRays(axes, px, D, fov, dtype):
+    edge = (D - 1) * np.tan(fov / 2)
+
     # TODO: offset
     xSpace = torch.linspace(-edge, edge, steps=px, dtype=dtype, device=axes.device).repeat(px, 1)[None, :, :, None]
     ySpace = -xSpace.transpose(1, 2)
@@ -29,27 +31,35 @@ def makeRays(axes, px, D, edge, dtype):
     norm = rays.reshape(-1, 3).norm(dim=1).view(-1, px, px, 1)
     return rays / norm
 
+def computePlanes(rays, axes, cameraD, size):
+    z = axes[:, 2][:, None, None, :]
+    center = cameraD * (-z.unsqueeze(3) @ rays.unsqueeze(4)).view(-1, size, size)
+    delta = torch.sqrt(torch.clamp(center ** 2 - cameraD ** 2 + 1, min=0.0))
+    return center - delta, center + delta, delta > 1e-10
+
 def upsample(t, scale):
     return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
-def multiscale(axes, frustum, latents, sdf, dtype, threshold):
+def multiscale(axes, scales, fov, latents, sdf, dtype, threshold):
+    cameraD = 1.0 / np.sin(fov / 2.0)
+
     batch = axes.shape[0]
     terminal = torch.zeros(batch, 1, 1, 1, dtype=dtype, device=axes.device)
     rayMask = torch.ones_like(terminal, dtype=torch.bool).squeeze(3)
-    origin = frustum.cameraD * axes[:, 2][:, None, None, :]
+    origin = cameraD * axes[:, 2][:, None, None, :]
     latents = latents[:, None, None, :]
     size = 1
 
+    smallestMask = None
     first = True
-    for scale, step, near, far, sphereMask in frustum:
+    for scale in scales:
         if not first:
             # TODO: move this into raymarch()
             # a geometric bound for whether a super-ray could have subrays that intersected the object
-            k = (maskedNear + distances) * 2 * np.tan(frustum.fov / (2. * size))
-            k = k.squeeze()
+            k = distances * 2 * np.tan(fov / (2. * size))
             # this is suspicious because it uses a step size which is not actually used by sphere tracing
             # also the 0.5 at the end is empirical
-            bound = torch.sqrt(2. * k ** 2. + (1.0 / step) ** 2) * 0.5
+            bound = torch.sqrt(2. * k ** 2. + (1.0 / 16.0) ** 2) * 0.5
             del k
 
             # subdivide the rays that pass close to the object
@@ -57,51 +67,51 @@ def multiscale(axes, frustum, latents, sdf, dtype, threshold):
             del bound
             del minValues
         first = False
+        size *= scale
+
+        rays = makeRays(axes, size, cameraD, fov, dtype=dtype)
+        near, far, sphereMask = computePlanes(rays, axes, cameraD, size)
+        if smallestMask is None:
+            smallestMask = sphereMask
 
         near = near.expand(batch, -1, -1)
         far = far.expand(batch, -1, -1)
-        size *= scale
         terminal = upsample(terminal, scale)
         rayMask = upsample(rayMask, scale)
         expandedLatents = latents.expand(-1, size, size, -1)
         expandedOrigin = origin.expand(-1, size, size, -1)
-        rays = makeRays(axes, size, frustum.cameraD, frustum.edge, dtype=dtype)
 
         # terminate rays that don't intersect the unit sphere
         rayMask = torch.logical_and(rayMask, sphereMask)
-        maskedNear = near[rayMask]
-        planes = torch.stack([maskedNear, far[rayMask]])
+        planes = torch.stack([near[rayMask], far[rayMask]])
 
         minValues, distances = sphereTrace(rays[rayMask],
                                         expandedOrigin[rayMask],
                                         planes,
                                         expandedLatents[rayMask],
                                         sdf,
-                                        steps=step,
                                         threshold=threshold,
                                         dtype=dtype)
 
-        terminal[rayMask] = (maskedNear + distances).unsqueeze(1)
+        terminal[rayMask] = distances.unsqueeze(1)
 
     points = origin + terminal * rays
 
     # use the lowest-resolution mask, because the high res mask includes unsampled rays
-    sphereMask = upsample(frustum.mask[0], frustum.imageSize // frustum.scales[0]).expand(batch, -1, -1)
+    sphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
     return points, expandedLatents, sphereMask
 
-def sphereTrace(rays, origin, planes, latents, sdf, steps, threshold, dtype):
-    device = rays.device
-    minValues = 5.0 * torch.ones(rays.shape[0], device=device, dtype=dtype)
+def sphereTrace(rays, origin, planes, latents, sdf, threshold, dtype, steps=16):
+    minValues = 5.0 * torch.ones(rays.shape[0], device=rays.device, dtype=dtype)
     mask = torch.ones_like(minValues, dtype=torch.bool)
-
-    distance = torch.ones_like(minValues) * (2.0 / steps)
-    minDistances = torch.ones_like(minValues) * distance
+    distance = planes[0].clone() + 2.0 / steps
+    minDistances = distance.clone()
 
     # start from 1, because the initial critical points are the 0-idx
     for i in range(1, steps):
         # march along each ray
         # compute the next target point
-        targets = (origin + rays * (planes[0] + distance).unsqueeze(1))[mask]
+        targets = (origin + rays * distance.unsqueeze(1))[mask]
 
         # stop if all rays have terminated
         if targets.shape[0] == 0:
@@ -128,12 +138,11 @@ def sphereTrace(rays, origin, planes, latents, sdf, steps, threshold, dtype):
 
         # terminate all rays that intersect the surface (negated)
         intersectMask = values > threshold
+        distance[mask] += values
 
         # terminate rays that exit the unit sphere on the next step (again negated)
-        maskedPlanes = planes * mask.float().expand(2, -1)
-        exitMask = (maskedPlanes[0] + distance) < maskedPlanes[1]
+        exitMask = distance < planes[1] * mask.float()
 
-        distance[mask] += values
         mask[mask] = intersectMask
         mask = torch.logical_and(mask, exitMask)
 

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dfr.hparams import HParams
 from dfr.ckpt import Checkpoint
-from dfr.raycast import raycast, MultiscaleFrustum
+from dfr.raycast import raycast
 from dfr.sdfNetwork import SDFNetwork
 
 count = 0
@@ -51,10 +51,9 @@ def main(args):
 
     phis = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
     thetas = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
-    frustum = MultiscaleFrustum(hp.fov, hp.raycastSteps, device=device)
 
     scaler = GradScaler(init_scale=32768.)
-    ret = raycast(phis, thetas, frustum, latents, sdf, scaler)
+    ret = raycast(phis, thetas, hp.raycastSteps, hp.fov, latents, sdf, scaler)
     out = ret['image']
 
     print(f"{count} SDF queries.")

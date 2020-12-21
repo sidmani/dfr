@@ -3,7 +3,6 @@ import torch
 from torch.optim import Adam
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
-from .raycast import MultiscaleFrustum
 from .hparams import HParams
 from torch.cuda.amp import GradScaler
 
@@ -62,7 +61,6 @@ class Checkpoint:
                     device=device)
             self.startEpoch = 0
 
-        self.frustum = MultiscaleFrustum(self.hparams.fov, self.hparams.raycastSteps, device=device)
         self.gen = SDFNetwork(self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
         self.gradScaler = GradScaler(init_scale=32768.)

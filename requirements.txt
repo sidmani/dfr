@@ -44,7 +44,7 @@ pyglet==1.5.11
 pyparsing==2.4.7
 pytest==6.1.2
 python-dateutil==2.8.1
-pytorch-memlab @ git+https://github.com/stonesjtu/pytorch_memlab@654cbb84a40807cd10a80e05ea365e5d8652311d
+pytorch-fid==0.2.0
 pytz==2020.4
 PyWavelets==1.1.1
 PyYAML==5.3.1

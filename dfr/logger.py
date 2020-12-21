@@ -78,9 +78,11 @@ class Logger:
         device = self.ckpt.examples.device
         phis = torch.ones(3, device=device) * np.pi / 6.
         thetas = torch.tensor([-0.25, 0.0, 0.25], device=device) * np.pi
+        hp = self.ckpt.hparams
         result = raycast(phis,
                        thetas,
-                       self.ckpt.frustum,
+                       hp.raycastSteps,
+                       hp.fov,
                        self.ckpt.examples,
                        self.ckpt.gen,
                        self.ckpt.gradScaler)

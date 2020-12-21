@@ -1,5 +1,6 @@
 import torch
 from argparse import ArgumentParser
+import numpy as np
 from pathlib import Path
 from .train import train
 from .dataset import ImageDataset, makeDataloader
@@ -93,7 +94,7 @@ def main(args):
     print(ckpt.hparams)
     dataset = ImageDataset(Path(args.data),
                            firstN=int(args.dlim) if args.dlim else None,
-                           imageSize=ckpt.frustum.imageSize)
+                           imageSize=np.prod(ckpt.hparams.raycastSteps))
 
     dataloader = makeDataloader(int(args.batch),
                                 dataset,

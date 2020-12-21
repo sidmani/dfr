@@ -17,7 +17,8 @@ def raycastBatch(batch, device, ckpt):
                      ckpt.hparams.latentStd,
                      size=(batch, ckpt.hparams.latentSize),
                      device=device)
-    fake = raycast(phis, thetas, ckpt.frustum, z, ckpt.gen, ckpt.gradScaler)['image']
+    hp = ckpt.hparams
+    fake = raycast(phis, thetas, hp.raycastSteps, hp.fov, z, ckpt.gen, ckpt.gradScaler)['image']
     return torch.chunk(fake, fake.shape[0], dim=0)
 
 if __name__ == "__main__":
