@@ -53,7 +53,7 @@ def main(args):
     thetas = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
 
     scaler = GradScaler(init_scale=32768.)
-    ret = raycast(phis, thetas, hp.raycastSteps, hp.fov, latents, sdf, scaler)
+    ret = raycast(phis, thetas, [32, 4], hp.fov, latents, sdf, scaler)
     out = ret['image']
 
     print(f"{count} SDF queries.")

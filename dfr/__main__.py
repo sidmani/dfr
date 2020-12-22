@@ -3,7 +3,6 @@ from argparse import ArgumentParser
 import numpy as np
 from pathlib import Path
 from .train import train
-from .dataset import ImageDataset, makeDataloader
 from .ckpt import Checkpoint
 from .logger import Logger
 from tools.memory import print_memory_stats
@@ -26,11 +25,6 @@ def setArgs(parser):
         '--dlim',
         dest='dlim',
         help='Limit the dataset to the first N items'
-    )
-    parser.add_argument(
-        '--batch',
-        dest='batch',
-        default=12,
     )
     parser.add_argument(
         '--ckpt',
@@ -92,15 +86,7 @@ def main(args):
                         activations=args.debug_act)
 
     print(ckpt.hparams)
-    dataset = ImageDataset(Path(args.data),
-                           firstN=int(args.dlim) if args.dlim else None,
-                           imageSize=np.prod(ckpt.hparams.raycastSteps))
-
-    dataloader = makeDataloader(int(args.batch),
-                                dataset,
-                                device,
-                                workers=0 if args.profile else 1)
-    train(dataloader, steps=int(args.steps), ckpt=ckpt, logger=logger)
+    train(Path(args.data), device, steps=int(args.steps), ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     parser = ArgumentParser()

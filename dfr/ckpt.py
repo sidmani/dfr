@@ -92,7 +92,7 @@ class Checkpoint:
                     continue
                 if fileIdx  % 1000 == 0 and epoch - fileIdx < 10000:
                     continue
-                if fileIdx % 10000 == 0:
+                if fileIdx % 10000 == 0 and fileIdx != 0:
                     continue
 
                 file.unlink()

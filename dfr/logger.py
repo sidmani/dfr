@@ -18,8 +18,8 @@ class Logger:
             if self.activations:
                 self.writeActivations(idx)
 
-        if idx % 200 == 0:
-            self.writeFixedSamples(idx)
+        # if idx % 200 == 0:
+        #     self.writeFixedSamples(idx)
 
         if self.gradientData and idx % 30 == 0:
             self.writeGradientData(data, idx)

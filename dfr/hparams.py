@@ -1,5 +1,7 @@
 from collections import namedtuple
 
+Stage = namedtuple('Stage', ['start', 'raycast', 'batch'])
+
 HParams = namedtuple('HParams', [
         'learningRate',
         'betas',
@@ -9,9 +11,9 @@ HParams = namedtuple('HParams', [
         'fov',
         'eikonalFactor',
         'illumFactor',
-        'raycastSteps',
         'sineOmega',
         'sdfWidth',
+        'trainingStages',
     ], defaults=[
         1e-4, # learningRate
         (0.5, 0.9), # betas
@@ -27,7 +29,13 @@ HParams = namedtuple('HParams', [
         # Too low (0.1) and the SDF coalesces slowly or not at all
         50.0, # eikonalFactor
         0.0, # illum factor
-        [32, 2], # raycast steps
         1.0, # the SIREN omega_0 value
         512,
+        [
+            Stage(0, [32, 2], 12),
+            Stage(300, [32, 2], 12),
+            Stage(600, [32, 2], 12),
+            # Stage(5000, [32, 2], 18),
+            # Stage(40000, [32, 4], 9),
+        ]
     ])
