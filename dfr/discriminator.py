@@ -1,6 +1,20 @@
 import torch
 import torch.nn as nn
 
+# This discriminator is based on DC-GAN.
+# - Weight init is not necessary and hasn't been shown to improve performance
+# - Decreasing # of feature maps from 64 to 32 degrades results from FID=121 to FID=169 at epoch 70k.
+
+# Possible improvements:
+# - CoordConv
+# - Various kinds of regularization (spectral norm; instance norm -> causes vanishing gradients)
+# - Pooling across channels
+# - Better architecture (including progressive growing)
+
+# Questions:
+# - Is the discriminator strong enough to handle multiple views of the object?
+# - How does the # of feature maps affect the results?
+
 class Discriminator(nn.Module):
     def __init__(self, hparams, channels=4, fmapSize=64):
         super().__init__()

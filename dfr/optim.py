@@ -58,7 +58,6 @@ def stepGenerator(fake, normals, illum, dis, genOpt, eikonalFactor, illumFactor,
     # the gen's params have changed, so can't backwards again on existing genLoss
     # so we have to run the discriminator again
     # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
-    # discriminator takes only 1/200 the time of the generator pass, so not a problem
     return {'generator_loss': genLoss.detach(),
             'eikonal_loss': eikonalLoss.detach(),
             'illum_loss': illumLoss.detach()}

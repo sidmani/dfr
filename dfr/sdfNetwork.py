@@ -39,6 +39,14 @@ class SineLayer(nn.Module):
         z = self.omega_0 * (gamma * self.linear(input) + beta)
         return z, torch.sin(z)
 
+# The SDF network is a SIREN, with FiLM conditioning, as in pi-GAN.
+# - the FiLM network is run multiple times on the same latents; do forward pass before mask
+# - omega_0 is set to 1 everywhere (SIREN uses 30), but the SDF doesn't coalesce with higher values.
+# - is_first=True is not set on the first layer.
+# - the width of the FiLM network might be too large
+# - the high eikonal value may impede high-frequency feature learning
+# - the variance of the latent vector is high
+# - the branches are deeper than in related architectures (like NeRF)
 class SDFNetwork(nn.Module):
     def __init__(self, hparams):
         super().__init__()

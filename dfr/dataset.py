@@ -28,11 +28,8 @@ class ImageDataset(Dataset):
 
         # load images into RAM
         print(f"Loading dataset ({len(objects)} objects) into RAM...")
-        imgsPerFolder = 24
-        for folder in tqdm(objects):
-            # pick a random view (1 per object)
-            idx = np.random.randint(0, imgsPerFolder)
-            img = Image.open(folder / 'rendering' / f"{idx:02d}.png")
+        for obj in tqdm(objects):
+            img = Image.open(obj)
             self.dataset.append(pipeline(img))
 
     def __len__(self):
