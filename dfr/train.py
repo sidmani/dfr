@@ -55,5 +55,5 @@ def loop(dataloader, ckpt, logger, idx):
         logger.log(logData, idx)
 
     # save every 100 iterations
-    if idx % 1000 == 0:
-        ckpt.save(idx, overwrite=False)
+    if idx % 100 == 0:
+        ckpt.save(idx, overwrite=True)

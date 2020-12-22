@@ -36,7 +36,7 @@ def main(args):
 
         # create input vector and compute values
         # out, normals = gen.sdf(grid, latent)
-        out, tx = ckpt.gen(grid, expandedLatents, mask=None)
+        out, tx = ckpt.gen(grid, expandedLatents, mask=torch.ones(*expandedLatents.shape[:-1], device=device, dtype=torch.bool))
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
         cubic = torch.reshape(out, (res, res, res)).detach().cpu().numpy()

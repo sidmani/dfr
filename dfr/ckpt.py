@@ -83,9 +83,18 @@ class Checkpoint:
         if self.noLog:
             return
 
-        # TODO: FID top-5
         if overwrite:
-            for file in self.loc.glob("*.pt"):
+            saved = self.loc.glob('*.pt')
+            for file in saved:
+                match = re.match("e([0-9]+)", str(file.stem))
+                fileIdx = int(match[1])
+                if fileIdx % 100 == 0 and epoch - fileIdx < 1000:
+                    continue
+                if fileIdx  % 1000 == 0 and epoch - fileIdx < 10000:
+                    continue
+                if fileIdx % 10000 == 0:
+                    continue
+
                 file.unlink()
 
         torch.save({
