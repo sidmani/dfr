@@ -1,5 +1,6 @@
 import torch
 from argparse import ArgumentParser
+import pprint
 import numpy as np
 from pathlib import Path
 from .train import train
@@ -85,8 +86,9 @@ def main(args):
                         gradientData=args.debug_grad,
                         activations=args.debug_act)
 
-    print(ckpt.hparams)
-    train(Path(args.data), device, steps=int(args.steps), ckpt=ckpt, logger=logger)
+    pp = pprint.PrettyPrinter(indent=2)
+    pp.pprint(ckpt.hparams._asdict())
+    train(Path(args.data), device, steps=int(args.steps), ckpt=ckpt, logger=logger, profile=args.profile)
 
 if __name__ == "__main__":
     parser = ArgumentParser()

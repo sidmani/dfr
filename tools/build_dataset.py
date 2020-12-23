@@ -21,8 +21,8 @@ if __name__ == "__main__":
         help='The output directory'
     )
     parser.add_argument(
-        '-r'
         '--resize',
+        '-r',
         dest='resize',
         default=None,
         help='Resize to a new resolution'

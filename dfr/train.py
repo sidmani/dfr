@@ -5,30 +5,31 @@ from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import stepGenerator, stepDiscriminator
 
-def train(datapath, device, steps, ckpt, logger):
+def train(datapath, device, steps, ckpt, logger, profile=False):
     stages = ckpt.hparams.trainingStages
-
-    # start at the stage specified by the checkpoint
-    startStage = 0
-    for stageIdx, stage in enumerate(stages):
-        if ckpt.startEpoch >= stage.start:
-            startStage = stageIdx
-
-    for i in range(startStage, len(stages)):
+    for i in range(ckpt.startStage, len(stages)):
         stage = stages[i]
+        ckpt.dis.setStage(i)
+
         imageSize = np.prod(stage.raycast)
         print(f'STAGE {i + 1}/{len(stages)}: resolution={imageSize}x{imageSize}, batch={stage.batch}.')
 
         dataset = ImageDataset(datapath, imageSize=imageSize)
-        dataloader = makeDataloader(stage.batch, dataset, device, workers=1)
+        dataloader = makeDataloader(stage.batch, dataset, device, workers=0 if profile else 1)
 
+        # start at the stage start, unless the checkpoint is from mid-stage
         startEpoch = max(stage.start, ckpt.startEpoch)
+        # end at the epoch before the next stage, if the next stage exists
         if len(stages) > i + 1:
             endEpoch = min(stages[i + 1].start, steps)
         else:
             endEpoch = steps
 
-        for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=steps):
+        for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
+            # fade in the new discriminator layer
+            if stage.fade > 0:
+                ckpt.dis.setAlpha(min(1.0, float(idx - startEpoch) / float(stage.fade)))
+
             loop(dataloader, stage, ckpt, logger, idx)
 
 # separate the loop function to make sure all variables go out of scope

@@ -3,7 +3,7 @@ import torch
 from torch.optim import Adam
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
-from .hparams import HParams
+from .hparams import HParams, checkStages
 from torch.cuda.amp import GradScaler
 
 def latestEpoch(loc):
@@ -43,12 +43,15 @@ class Checkpoint:
             epoch = latestEpoch(self.loc)
 
         # if the version exists, load it
+        self.startStage = 0
         if epoch is not None:
             ckpt = torch.load(self.loc / f"e{epoch}.pt", map_location=device)
             self.hparams = ckpt['hparams']
             self.examples = ckpt['examples']
             self.startEpoch = epoch + 1
-
+            for stageIdx, stage in enumerate(self.hparams.trainingStages):
+                if self.startEpoch >= stage.start:
+                    self.startStage = stageIdx
         else:
             ckpt = None
             if not noLog:
@@ -60,6 +63,8 @@ class Checkpoint:
                     size=(3, self.hparams.latentSize),
                     device=device)
             self.startEpoch = 0
+
+        checkStages(self.hparams.trainingStages)
 
         self.gen = SDFNetwork(self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
