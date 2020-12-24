@@ -51,12 +51,14 @@ if __name__ == "__main__":
     args.profile = True
     args.no_log = True
 
-    print(f'Profiling (sort wrt {args.profile_sort})')
+    print(f'PROFILE: Starting main()...')
     with profile(use_cuda=True, profile_memory=True, with_stack=True) as prof:
         main(args)
+    print(f'PROFILE: main() has exited. Sorting results wrt {args.profile_sort}')
+
 
     out = prof.key_averages(group_by_stack_n=10).table(row_limit=50, sort_by=args.profile_sort, top_level_events_only=True)
-    print(f'Done profiling; writing stats to {args.profile_out}.')
+    print(f'PROFILE: writing stats to {args.profile_out}.')
     file = open(args.profile_out, 'w')
     file.write(out)
     file.close()

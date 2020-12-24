@@ -1,16 +1,14 @@
 import torch
 import torch.nn as nn
 
-# This discriminator is based on DC-GAN.
-# - Weight init is not necessary and hasn't been shown to improve performance
-# - Decreasing # of feature maps from 64 to 32 degrades results from FID=121 to FID=169 at epoch 70k.
-# - Increasing # of feature maps from 64 to 128 improves from FID=121 to FID=96
+# Progressive growing discriminator, based on pi-GAN architecture
 
 # Possible improvements:
 # - CoordConv
+# - Minibatch std dev
+# - Equalized learning rate
+# - Skip connections
 # - Various kinds of regularization (spectral norm; instance norm -> causes vanishing gradients)
-# - Pooling across channels
-# - Better architecture (including progressive growing)
 
 # Questions:
 # - Is the discriminator strong enough to handle multiple views of the object?
@@ -42,12 +40,12 @@ class Discriminator(nn.Module):
         self.adapter = nn.ModuleList([])
         self.blocks = nn.ModuleList([
             # the last 2 blocks do 8x8 -> 2x2
-            ProgressiveBlock(400, 400, self.activation),
-            ProgressiveBlock(400, 400, self.activation)
+            ProgressiveBlock(384, 384, self.activation),
+            ProgressiveBlock(384, 384, self.activation)
         ])
 
-        # 400x2x2 -> 1x1x1
-        self.output = nn.Conv2d(400, 1, kernel_size=2)
+        # 384x2x2 -> 1x1x1
+        self.output = nn.Conv2d(384, 1, kernel_size=2)
         self.downsample = nn.AvgPool2d(2)
 
         # set up the progressive growing stages

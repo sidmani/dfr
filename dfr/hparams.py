@@ -29,10 +29,10 @@ HParams = namedtuple('HParams', [
         1.0, # the SIREN omega_0 value
         512,
         [
-            Stage(0, [16], 24, fade=0, discChannels=400),
-            Stage(20000, [16, 2], 18, fade=5000, discChannels=400),
-            Stage(50000, [32, 2], 12, fade=5000, discChannels=256),
-            Stage(80000, [32, 4], 6, fade=5000, discChannels=128),
+            Stage(0, [16], 24, fade=0, discChannels=384),
+            Stage(20000, [16, 2], 18, fade=10000, discChannels=384),
+            Stage(60000, [32, 2], 12, fade=10000, discChannels=256),
+            Stage(90000, [32, 4], 6, fade=10000, discChannels=128),
         ]
     ])
 
