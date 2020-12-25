@@ -29,21 +29,17 @@ def gradientPenalty(dis, real, fake, gradScaler):
         gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
         return ((gradNorm - 1.0) ** 2.0).mean()
 
-def stepGenerator(fake, normals, illum, dis, genOpt, eikonalFactor, illumFactor, gradScaler):
+def stepGenerator(fake, normals, dis, genOpt, eikonalFactor, gradScaler):
+    for p in dis.parameters():
+        p.requires_grad = False
+
     with autocast():
         # normals have already been scaled to correct values
         # the eikonal loss encourages the sdf to have unit gradient
         eikonalLoss = ((normals.norm(dim=1) - 1.0) ** 2.0).mean()
 
-        # normals should not be pointing away from the view direction (i.e. illum < 0.5)
-        # since the raycaster is pretty much perfect, this should even out the weird bits
-        illumLoss = (0.5 - illum.clamp(max=0.5)).mean()
-
         # check what the discriminator thinks
-        genLoss = -dis(fake).mean() + eikonalFactor * eikonalLoss + illumFactor * illumLoss
-
-    for p in dis.parameters():
-        p.requires_grad = False
+        genLoss = -dis(fake).mean() + eikonalFactor * eikonalLoss
 
     # graph: genLoss -> discriminator -> generator
     gradScaler.scale(genLoss).backward()
@@ -59,8 +55,7 @@ def stepGenerator(fake, normals, illum, dis, genOpt, eikonalFactor, illumFactor,
     # so we have to run the discriminator again
     # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
     return {'generator_loss': genLoss.detach(),
-            'eikonal_loss': eikonalLoss.detach(),
-            'illum_loss': illumLoss.detach()}
+            'eikonal_loss': eikonalLoss.detach()}
 
 def stepDiscriminator(fake, real, dis, disOpt, gradScaler):
     # the generator's not gonna be updated, so detach it from the grad graph

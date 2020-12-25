@@ -88,6 +88,7 @@ def main(args):
 
     pp = pprint.PrettyPrinter(indent=2)
     pp.pprint(ckpt.hparams._asdict())
+    torch.backends.cudnn.benchmark = True
     train(Path(args.data), device, steps=int(args.steps), ckpt=ckpt, logger=logger, profile=args.profile)
 
 if __name__ == "__main__":

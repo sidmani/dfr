@@ -40,7 +40,6 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
         # TODO: the indexing here is likely unnecessary and slows the backward pass
         # scale dot product from [-1, 1] to [0, 1]
         illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(-1, 1, 3, 1)).view(-1, 1) + 1.0) / 2.0
-        unmaskedIllum = illum.clone()
         illum[notHitMask] = 1.0
         imageSize = np.prod(scales)
         result = torch.zeros(batch, imageSize, imageSize, 4, device=phis.device)
@@ -50,6 +49,5 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
         result[sphereMask] = torch.cat([illum * opacityMask * textures, opacityMask], dim=1)
         ret['image'] = result.permute(0, 3, 1, 2)
         ret['normals'] = normals
-        ret['illum'] = unmaskedIllum
 
         return ret

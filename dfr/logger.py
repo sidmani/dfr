@@ -28,7 +28,6 @@ class Logger:
         if 'generator_loss' in data:
             self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
             self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)
-            self.logger.add_scalar('generator/illum', data['illum_loss'], global_step=idx)
 
         self.logger.add_scalar('discriminator/fake', data['discriminator_fake'], global_step=idx)
         self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)

@@ -11,7 +11,6 @@ HParams = namedtuple('HParams', [
         'latentStd',
         'fov',
         'eikonalFactor',
-        'illumFactor',
         'sineOmega',
         'sdfWidth',
         'trainingStages',
@@ -25,14 +24,13 @@ HParams = namedtuple('HParams', [
         3.0, # latent stddev
         0.5, # ~30 deg FOV
         1.0, # eikonalFactor
-        0.0, # illum factor
         1.0, # the SIREN omega_0 value
         512,
         [
-            Stage(0, [16], 24, fade=0, discChannels=384),
-            Stage(20000, [16, 2], 18, fade=10000, discChannels=384),
-            Stage(60000, [32, 2], 12, fade=10000, discChannels=256),
-            Stage(90000, [32, 4], 6, fade=10000, discChannels=128),
+            Stage(0, [16], 32, fade=0, discChannels=384),
+            Stage(25000, [16, 2], 32, fade=10000, discChannels=384),
+            Stage(75000, [32, 2], 16, fade=10000, discChannels=256),
+            Stage(100000, [32, 4], 8, fade=10000, discChannels=128),
         ]
     ])
 

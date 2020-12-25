@@ -11,12 +11,6 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
         stage = stages[i]
         ckpt.dis.setStage(i)
 
-        imageSize = np.prod(stage.raycast)
-        print(f'STAGE {i + 1}/{len(stages)}: resolution={imageSize}x{imageSize}, batch={stage.batch}.')
-
-        dataset = ImageDataset(datapath, imageSize=imageSize)
-        dataloader = makeDataloader(stage.batch, dataset, device, workers=0 if profile else 1)
-
         # start at the stage start, unless the checkpoint is from mid-stage
         startEpoch = max(stage.start, ckpt.startEpoch)
         # end at the epoch before the next stage, if the next stage exists
@@ -24,6 +18,15 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
             endEpoch = min(stages[i + 1].start, steps)
         else:
             endEpoch = steps
+
+        if endEpoch <= startEpoch:
+            break
+
+        imageSize = np.prod(stage.raycast)
+        print(f'STAGE {i + 1}/{len(stages)}: resolution={imageSize}x{imageSize}, batch={stage.batch}.')
+
+        dataset = ImageDataset(datapath, imageSize=imageSize)
+        dataloader = makeDataloader(stage.batch, dataset, device, workers=0 if profile else 1)
 
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
@@ -57,11 +60,9 @@ def loop(dataloader, stage, ckpt, logger, idx):
     if idx % hparams.discIter == 0:
         genData = stepGenerator(fake,
                                 sampled['normals'],
-                                sampled['illum'],
                                 ckpt.dis,
                                 ckpt.genOpt,
                                 hparams.eikonalFactor,
-                                hparams.illumFactor,
                                 ckpt.gradScaler)
         logData.update(genData)
 
