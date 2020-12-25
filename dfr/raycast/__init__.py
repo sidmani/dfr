@@ -27,12 +27,12 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
                 retain_graph=True,
                 only_inputs=True)[0]
     normals = scaledNormals / gradScaler.get_scale()
-    ret = {}
+
     with autocast():
         notHitMask = values > threshold
+        normalLength = normals.norm(dim=1)
         # need epsilon in denominator for numerical stability
-        normalLength = (normals.norm(dim=1).unsqueeze(1) + 1e-5)
-        unitNormals = normals / normalLength
+        unitNormals = normals / (normalLength.unsqueeze(1) + 1e-5)
 
         # light is directed from camera
         light = axes[:, 2]
@@ -42,12 +42,11 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
         illum = (torch.matmul(unitNormals.view(batch, -1, 1, 3), light.view(-1, 1, 3, 1)).view(-1, 1) + 1.0) / 2.0
         illum[notHitMask] = 1.0
         imageSize = np.prod(scales)
-        result = torch.zeros(batch, imageSize, imageSize, 4, device=phis.device)
 
         # shift the exponential over so that f(threshold) = 1, and clip anything to the left of that
         opacityMask = torch.exp(-sharpness * (values - threshold)).clamp(max=1.0)
+        result = torch.zeros(batch, imageSize, imageSize, 4, device=phis.device)
         result[sphereMask] = torch.cat([illum * opacityMask * textures, opacityMask], dim=1)
-        ret['image'] = result.permute(0, 3, 1, 2)
-        ret['normals'] = normals
 
-        return ret
+        # TODO: this permute() can be avoided
+        return {'image': result.permute(0, 3, 1, 2), 'normalLength': normalLength}

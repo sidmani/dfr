@@ -1,4 +1,3 @@
-import numpy as np
 from itertools import repeat
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
@@ -12,6 +11,7 @@ class ImageDataset(Dataset):
         self.imageSize = imageSize
 
         pipeline = transforms.Compose([
+            # TODO: bilinear interpolation infrequently causes artifacts in the output
             transforms.Resize((imageSize, imageSize)),
             transforms.ToTensor(),
         ])

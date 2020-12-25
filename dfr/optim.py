@@ -29,14 +29,14 @@ def gradientPenalty(dis, real, fake, gradScaler):
         gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
         return ((gradNorm - 1.0) ** 2.0).mean()
 
-def stepGenerator(fake, normals, dis, genOpt, eikonalFactor, gradScaler):
+def stepGenerator(fake, normalLength, dis, genOpt, eikonalFactor, gradScaler):
     for p in dis.parameters():
         p.requires_grad = False
 
     with autocast():
         # normals have already been scaled to correct values
         # the eikonal loss encourages the sdf to have unit gradient
-        eikonalLoss = ((normals.norm(dim=1) - 1.0) ** 2.0).mean()
+        eikonalLoss = ((normalLength - 1.0) ** 2.0).mean()
 
         # check what the discriminator thinks
         genLoss = -dis(fake).mean() + eikonalFactor * eikonalLoss

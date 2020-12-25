@@ -6,7 +6,6 @@ from pathlib import Path
 from .train import train
 from .ckpt import Checkpoint
 from .logger import Logger
-from tools.memory import print_memory_stats
 
 def setArgs(parser):
     parser.add_argument(
@@ -14,13 +13,15 @@ def setArgs(parser):
         '-d',
         dest='data',
         required=True,
-        help='The source directory for the 3D-R2N2 shapenet rendering dataset'
+        type=Path,
+        help='The source directory for the 3D-R2N2 shapenet rendering dataset',
     )
     parser.add_argument(
         '--steps',
         dest='steps',
         default=10 ** 5,
-        help='The number of discriminator iterations'
+        type=int,
+        help='The number of discriminator iterations',
     )
     parser.add_argument(
         '--dlim',
@@ -66,18 +67,14 @@ def setArgs(parser):
         '--run-dir',
         '-r',
         dest='runDir',
+        default=Path.cwd() / 'runs',
+        type=Path,
     )
 
 def main(args):
-    runDir = Path(args.runDir) if args.runDir else Path.cwd() / 'runs'
-
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        raise Exception('No GPU available! Cannot proceed.')
-
-    runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(runDir, version=args.ckpt, device=device, noLog=args.no_log)
+    device = torch.device('cuda')
+    args.runDir.mkdir(exist_ok=True)
+    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, noLog=args.no_log)
 
     if args.no_log:
         logger = None
@@ -88,12 +85,13 @@ def main(args):
 
     pp = pprint.PrettyPrinter(indent=2)
     pp.pprint(ckpt.hparams._asdict())
+
+    # selects best convolution algorithm; yields ~1.5x overall speedup
     torch.backends.cudnn.benchmark = True
-    train(Path(args.data), device, steps=int(args.steps), ckpt=ckpt, logger=logger, profile=args.profile)
+    train(args.data, device, steps=args.steps, ckpt=ckpt, logger=logger, profile=args.profile)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     setArgs(parser)
     args = parser.parse_args()
     main(args)
-    print_memory_stats()

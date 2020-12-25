@@ -44,8 +44,7 @@ class SineLayer(nn.Module):
 # - omega_0 is set to 1 everywhere (SIREN uses 30), but the SDF doesn't coalesce with higher values.
 # - is_first=True is not set on the first layer.
 # - the width of the FiLM network might be too large
-# - the high eikonal value may impede high-frequency feature learning
-# - the variance of the latent vector is high
+# - the variance of the latent vector is high (or is it low?)
 # - the branches are deeper than in related architectures (like NeRF)
 class SDFNetwork(nn.Module):
     def __init__(self, hparams):

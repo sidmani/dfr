@@ -19,6 +19,7 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
         else:
             endEpoch = steps
 
+        # stop execution if necessary
         if endEpoch <= startEpoch:
             break
 
@@ -59,7 +60,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
     # update the generator every nth iteration
     if idx % hparams.discIter == 0:
         genData = stepGenerator(fake,
-                                sampled['normals'],
+                                sampled['normalLength'],
                                 ckpt.dis,
                                 ckpt.genOpt,
                                 hparams.eikonalFactor,
