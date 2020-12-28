@@ -8,6 +8,7 @@ from dfr.hparams import HParams
 from dfr.ckpt import Checkpoint
 from dfr.raycast import raycast
 from dfr.sdfNetwork import SDFNetwork
+from torchvision import transforms
 
 count = 0
 
@@ -46,32 +47,35 @@ def main(args):
         hp = HParams()
         sdf = MockSDFCube()
         latentSize = 6
-        latents = torch.zeros(2, latentSize, device=device, dtype=dtype)
+        latents = torch.zeros(1, latentSize, device=device, dtype=dtype)
         latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
-        latents[1, :6] = torch.tensor([1.0, 0.0, 0.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
 
-    phis = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
-    thetas = torch.tensor([0.0, np.pi/4], device=device, dtype=dtype)
-
-    imgSize = np.prod(args.resolution)
-    print(f'Raycasting at resolution {imgSize}x{imgSize}')
+    phis = torch.tensor([np.pi/4], device=device, dtype=dtype)
+    thetas = torch.tensor([np.pi/4], device=device, dtype=dtype)
     scaler = GradScaler(init_scale=32768.)
-    ret = raycast(phis, thetas, args.resolution, hp.fov, latents, sdf, scaler)
-    out = ret['image']
-    for i in range(args.pool):
-        out = torch.nn.functional.avg_pool2d(out, 2)
 
-    print(f"{count} SDF queries.")
-    obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
-    obj2 = out[1].permute(1, 2, 0).cpu().detach().numpy()
+    ret_1 = raycast(phis, thetas, [32], hp.fov, latents, sdf, scaler)['image'][0]
+    ret_2 = raycast(phis, thetas, [32, 4], hp.fov, latents, sdf, scaler)['image'][0]
+    # avgPooled = torch.nn.functional.avg_pool2d(ret_2, 4)
+    # bilinear = transforms.functional.resize(ret_2, [32, 32])
+    print(ret_2.shape)
+    bilinear = torch.nn.functional.interpolate(ret_2.unsqueeze(0), size=[32, 32], mode='bilinear').squeeze(0)
+    # print((avgPooled - bilinear).abs().mean().item())
+
+    obj1 = ret_1.permute(1, 2, 0).cpu().detach().numpy()
+    obj2 = bilinear.permute(1, 2, 0).cpu().detach().numpy()
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 
-    fig, axs = plt.subplots(2, 2)
+    print(f'Mean distance: {np.abs(obj1 - obj2).mean()}')
+
+    fig, axs = plt.subplots(2, 3)
     axs[0, 0].imshow(obj1)
     axs[0, 1].imshow(obj2)
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
+    axs[0, 2].imshow(np.linalg.norm(obj1 - obj2, axis=2))
+    axs[1, 2].imshow(np.abs(sil1 - sil2))
     plt.show()
 
 if __name__ == "__main__":
@@ -85,18 +89,6 @@ if __name__ == "__main__":
             '--epoch',
             '-e',
             type=int
-    )
-    parser.add_argument(
-            '--resolution',
-            '-r',
-            type=int,
-            nargs='+',
-            default=[32, 4],
-    )
-    parser.add_argument(
-            '--pool',
-            type=int,
-            default=0,
     )
     args = parser.parse_args()
     main(args)

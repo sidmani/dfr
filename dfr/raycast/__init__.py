@@ -1,7 +1,7 @@
 import torch
 from torch.cuda.amp import autocast
 import numpy as np
-from .ray import rotateAxes, makeRays, multiscale
+from .ray import rotateAxes, multiscale
 
 def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3, sharpness=10.0):
     batch = latents.shape[0]

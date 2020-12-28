@@ -8,8 +8,6 @@ from tqdm import tqdm
 class ImageDataset(Dataset):
     def __init__(self, dataPath, firstN=None, imageSize=64):
         super().__init__()
-        self.imageSize = imageSize
-
         pipeline = transforms.Compose([
             # TODO: bilinear interpolation infrequently causes artifacts in the output
             transforms.Resize((imageSize, imageSize)),
@@ -17,14 +15,11 @@ class ImageDataset(Dataset):
         ])
 
         self.dataset = []
-        objects = sorted(list(dataPath.glob('*')))
+        objects = list(dataPath.glob('*'))
 
         # firstN limits the dataset size if present
         if firstN is not None and firstN < len(objects):
             objects = objects[:firstN]
-
-        if len(objects) == 0:
-            raise Exception('Dataset is empty!')
 
         # load images into RAM
         print(f"Loading dataset ({len(objects)} objects) into RAM...")

@@ -24,11 +24,6 @@ def setArgs(parser):
         help='The number of discriminator iterations',
     )
     parser.add_argument(
-        '--dlim',
-        dest='dlim',
-        help='Limit the dataset to the first N items'
-    )
-    parser.add_argument(
         '--ckpt',
         '-v',
         dest='ckpt',

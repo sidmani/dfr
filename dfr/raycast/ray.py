@@ -17,9 +17,12 @@ def rotateAxes(phis, thetas):
     ], dim=2)
 
 def makeRays(axes, px, D, fov, dtype):
-    edge = (D - 1) * np.tan(fov / 2)
+    edgeLength = (D - 1) * np.tan(fov / 2)
 
-    # TODO: offset
+    # offsets the edges so a 2n x 2n grid is evenly spaced within an n x n grid
+    # for example, raycasting at 32x32 avg pooled to 16x16 should look very similar to raycasting at 16x16
+    edge = edgeLength * (1. - 1. / px)
+
     xSpace = torch.linspace(-edge, edge, steps=px, dtype=dtype, device=axes.device).repeat(px, 1)[None, :, :, None]
     ySpace = -xSpace.transpose(1, 2)
     x = axes[:, 0][:, None, None, :]
@@ -37,6 +40,8 @@ def computePlanes(rays, axes, cameraD, size):
     delta = torch.sqrt(torch.clamp(center ** 2 - cameraD ** 2 + 1, min=0.0))
     return center - delta, center + delta, delta > 1e-10
 
+# nearest-neighbor upsampling
+# can probably do a better job with bilinear interpolation
 def upsample(t, scale):
     return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
