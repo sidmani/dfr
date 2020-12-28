@@ -79,7 +79,7 @@ def main(args):
                         activations=args.debug_act)
 
     pp = pprint.PrettyPrinter(indent=2)
-    pp.pprint(ckpt.hparams._asdict())
+    pp.pprint(ckpt.hparams.__dict__)
 
     # selects best convolution algorithm; yields ~1.5x overall speedup
     torch.backends.cudnn.benchmark = True
@@ -88,5 +88,4 @@ def main(args):
 if __name__ == "__main__":
     parser = ArgumentParser()
     setArgs(parser)
-    args = parser.parse_args()
-    main(args)
+    main(parser.parse_args())

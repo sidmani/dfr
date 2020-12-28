@@ -3,6 +3,18 @@ from torch.cuda.amp import autocast
 import numpy as np
 from .ray import rotateAxes, multiscale
 
+def sample_like(other, ckpt, scales):
+    batchSize = other.shape[0]
+    device = other.device
+
+    phis = torch.ones(batchSize, device=device) * (np.pi / 6.0)
+    thetas = torch.rand_like(phis) * (2.0 * np.pi)
+    z = torch.normal(0.0,
+                     ckpt.hparams.latentStd,
+                     size=(batchSize, ckpt.hparams.latentSize),
+                     device=device)
+    return raycast(phis, thetas, scales, ckpt.hparams.fov, z, ckpt.gen, ckpt.gradScaler)
+
 def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3, sharpness=10.0):
     batch = latents.shape[0]
     # autograd isn't needed here; no backprop to the camera position

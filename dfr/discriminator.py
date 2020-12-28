@@ -24,6 +24,8 @@ class ProgressiveBlock(nn.Module):
             activation,
             nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
             activation,
+            # average pooling can cause problems
+            # https://richzhang.github.io/antialiased-cnns/
             nn.AvgPool2d(2),
         )
         self.inChannels = inChannels
@@ -42,16 +44,17 @@ class Discriminator(nn.Module):
         self.blocks = nn.ModuleList([
             # the last 2 blocks do 8x8 -> 2x2
             ProgressiveBlock(384, 384, self.activation),
-            ProgressiveBlock(384, 384, self.activation)
+            ProgressiveBlock(384, 384, self.activation),
         ])
         self.initBlockCount = len(self.blocks)
 
         # 384x2x2 -> 1x1x1
+        # even-sized convolutions have issues
+        # https://papers.nips.cc/paper/2019/hash/2afe4567e1bf64d32a5527244d104cea-Abstract.html
         self.output = nn.Conv2d(384, 1, kernel_size=2)
-        self.downsample = nn.AvgPool2d(2)
 
         # set up the progressive growing stages
-        for stage in hparams.trainingStages:
+        for stage in hparams.stages:
             conv = nn.Conv2d(self.inChannels, stage.discChannels, kernel_size=1)
             self.adapter.append(conv)
 
@@ -67,17 +70,17 @@ class Discriminator(nn.Module):
     def setAlpha(self, alpha):
         self.alpha = alpha
 
-    def forward(self, img):
+    def forward(self, img, downsampled):
         # the block corresponding to the current stage
         x = self.adapter[self.stage](img)
         x = self.activation(x)
         x = self.blocks[-(self.initBlockCount + 1) - self.stage](x)
 
         # the faded value from the previous stage
+        # assumes downsampled is not None
         if self.alpha < 1.0:
-            x2 = self.downsample(img)
             # first stage can't have alpha < 1, so self.stage - 1 >= 0
-            x2 = self.adapter[self.stage - 1](x2)
+            x2 = self.adapter[self.stage - 1](downsampled)
             x2 = self.activation(x2)
             x = (1 - self.alpha) * x2 + self.alpha * x
             del x2

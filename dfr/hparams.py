@@ -1,56 +1,54 @@
 import numpy as np
-from collections import namedtuple
+from typing import List, Tuple
+from dataclasses import dataclass
 
-Stage = namedtuple('Stage', ['start', 'raycast', 'batch', 'fade', 'discChannels'])
+@dataclass
+class Stage:
+    start: int
+    raycast: list
+    batch: int
+    fade: int
+    discChannels: int
 
-HParams = namedtuple('HParams', [
-        'learningRate',
-        'betas',
-        'discIter',
-        'latentSize',
-        'latentStd',
-        'fov',
-        'eikonalFactor',
-        'sineOmega',
-        'sdfWidth',
-        'trainingStages',
-    ], defaults=[
-        1e-4, # learningRate - probably needs to be decayed
-        (0.5, 0.9), # betas
-        1, # discIter
-        256, # latentSize
-        3.0, # latent stddev
-        0.5, # ~30 deg FOV
-        1.0, # eikonalFactor
-        1.0, # the SIREN omega_0 value - is this too low?
-        512, # this is likely higher than necessary (pi-GAN uses 256)
-        [
-            Stage(0, [16], 32, fade=0, discChannels=384),
-            Stage(25000, [16, 2], 32, fade=10000, discChannels=384),
-            # TODO: seems a bit late; examine FID
-            Stage(75000, [32, 2], 16, fade=10000, discChannels=256),
-            # TODO: probably too soon
-            Stage(100000, [32, 4], 8, fade=10000, discChannels=128),
-        ]
-    ])
+    @property
+    def imageSize(self):
+        return np.prod(self.raycast)
 
-# sanity checks for the stage parameters
-def checkStages(stages):
-    last = -1
-    size = 0
-    for idx, stage in enumerate(stages):
-        # stages must start at increasing times
-        assert stage.start > last
-        last = stage.start
+@dataclass
+class HParams:
+    learningRate: float = 1e-4
+    betas: Tuple[int, int] = (0.5, 0.9)
+    discIter: int = 1
+    latentSize: int = 256
+    latentStd: float = 3.0
+    fov: float = 0.5
+    eikonal: float = 1.0
+    sineOmega: float = 1.0
+    sdfWidth: int = 512
+    stages: Tuple[Stage, ...] = (
+        Stage(start=0, raycast=[16], batch=32, fade=0, discChannels=384),
+        Stage(start=20000, raycast=[16, 2], batch=16, fade=10000, discChannels=384),
+        Stage(start=50000, raycast=[16, 4], batch=16, fade=10000, discChannels=256),
+        Stage(start=100000, raycast=[32, 4], batch=8, fade=10000, discChannels=128),
+    )
 
-        if idx == 0:
-            assert stage.fade == 0
-            size = np.prod(stage.raycast)
-        else:
-            newSize = np.prod(stage.raycast)
-            assert newSize == size * 2
-            size = newSize
+    def __post_init__(self):
+        # sanity checks for the stage parameters
+        last = -1
+        size = 0
+        for idx, stage in enumerate(self.stages):
+            # stages must start at increasing times
+            assert stage.start > last
+            last = stage.start
 
-        # fading must end before the next stage
-        if len(stages) > idx + 1:
-            assert stage.fade < stages[idx + 1].start
+            if idx == 0:
+                assert stage.fade == 0
+                size = np.prod(stage.raycast)
+            else:
+                newSize = np.prod(stage.raycast)
+                assert newSize == size * 2
+                size = newSize
+
+            # fading must end before the next stage
+            if len(self.stages) > idx + 1:
+                assert stage.fade < self.stages[idx + 1].start
