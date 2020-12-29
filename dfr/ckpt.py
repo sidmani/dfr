@@ -66,6 +66,8 @@ class Checkpoint:
 
         self.gen = SDFNetwork(self.hparams).to(device)
         self.dis = Discriminator(self.hparams).to(device)
+        self.dis.setStage(self.startStage)
+
         self.gradScaler = GradScaler(init_scale=32768.)
 
         self.genOpt = Adam(self.gen.parameters(),

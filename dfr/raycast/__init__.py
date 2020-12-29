@@ -6,7 +6,9 @@ from .ray import rotateAxes, multiscale
 def sample_like(other, ckpt, scales):
     batchSize = other.shape[0]
     device = other.device
+    return sample(other.shape[0], other.device, ckpt, scales)
 
+def sample(batchSize, device, ckpt, scales):
     phis = torch.ones(batchSize, device=device) * (np.pi / 6.0)
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
     z = torch.normal(0.0,

@@ -9,7 +9,7 @@ def gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler):
     with autocast():
         epsilon = torch.rand(realFull.shape[0], 1, 1, 1, device=realFull.device)
         interpFull = epsilon * realFull + (1.0 - epsilon) * fakeFull
-        if realHalf is not None:
+        if realHalf is not None and dis.alpha < 1.0:
             interpHalf = epsilon * realHalf + (1.0 - epsilon) * fakeHalf
             inputs = (interpFull, interpHalf)
         else:

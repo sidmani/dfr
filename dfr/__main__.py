@@ -14,7 +14,7 @@ def setArgs(parser):
         dest='data',
         required=True,
         type=Path,
-        help='The source directory for the 3D-R2N2 shapenet rendering dataset',
+        help='The folder of source images',
     )
     parser.add_argument(
         '--steps',

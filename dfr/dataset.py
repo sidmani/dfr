@@ -12,7 +12,7 @@ class ImageDataset(Dataset):
         self.dataset = {}
         for size in sizes:
             self.dataset[size] = []
-        self.requested = []
+        self.requested = sizes
 
         # load images into RAM
         objects = list(dataPath.glob('*'))
