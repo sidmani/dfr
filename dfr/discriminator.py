@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from antialiased_cnns import BlurPool
 
 # Progressive growing discriminator, based on pi-GAN architecture
 # Possible improvements:
@@ -19,7 +20,7 @@ class ProgressiveBlock(nn.Module):
         super().__init__()
         # inChannels x S x S -> outChannels x S/2 x S/2
         self.layers = nn.Sequential(
-            # pi-GAN uses in->out, out-> out, but pro-gan uses in->in, in->out
+            # pi-GAN uses in->out, out->out, but pro-gan uses in->in, in->out
             nn.Conv2d(inChannels, inChannels, kernel_size=3, padding=1),
             activation,
             nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
