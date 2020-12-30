@@ -46,7 +46,7 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
         notHitMask = values > threshold
         normalLength = normals.norm(dim=1)
         # need epsilon in denominator for numerical stability
-        unitNormals = normals / (normalLength.unsqueeze(1) + 1e-5)
+        unitNormals = normals / (normalLength.unsqueeze(1) + 1e-3)
 
         # light is directed from camera
         light = axes[:, 2]

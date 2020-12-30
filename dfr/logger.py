@@ -32,6 +32,9 @@ class Logger:
         self.logger.add_scalar('discriminator/fake', data['discriminator_fake'], global_step=idx)
         self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)
         self.logger.add_scalar('discriminator/total', data['discriminator_total'], global_step=idx)
+        self.logger.add_scalar('discriminator/penalty', data['penalty'], global_step=idx)
+        self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
+        self.logger.add_scalar('discriminator/without_penalty', data['discriminator_fake'] - data['discriminator_real'], global_step=idx)
 
     def writeImages(self, data, idx):
         # log images every 50 iterations (every ~6 seconds on 64x64)

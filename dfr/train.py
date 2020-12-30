@@ -36,8 +36,8 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
-                ckpt.dis.setAlpha(0)
-                # ckpt.dis.setAlpha(min(1.0, float(idx - startEpoch) / float(stage.fade)))
+                # ckpt.dis.setAlpha(1e-3)
+                ckpt.dis.setAlpha(min(1.0, float(idx - startEpoch) / float(stage.fade)))
 
             loop(dataloader, stage, ckpt, logger, idx)
 
@@ -115,6 +115,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
     logData['discriminator_real'] = disReal.detach()
     logData['discriminator_fake'] = disFake.detach()
     logData['discriminator_total'] = disLoss.detach()
+    logData['penalty'] = penalty.detach()
 
     if logger is not None:
         # write the log output
