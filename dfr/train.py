@@ -8,8 +8,7 @@ from .optim import gradientPenalty
 
 def train(datapath, device, steps, ckpt, logger, profile=False):
     stages = ckpt.hparams.stages
-    dataset = ImageDataset(datapath, [16, 32])
-    # dataset = ImageDataset(datapath, [s.imageSize for s in stages])
+    dataset = ImageDataset(datapath, [s.imageSize for s in stages])
 
     for i in range(ckpt.startStage, len(stages)):
         stage = stages[i]
@@ -28,14 +27,9 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
             break
 
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
-        if i == 0:
-            request = [16]
-        else:
-            request = [32, 16]
-        # request = [stage.imageSize]
-        # if i > 0:
-            # request.append(16)
-            # request.append(stages[i - 1].imageSize)
+        request = [stage.imageSize]
+        if i > 0:
+            request.append(stages[i - 1].imageSize)
         dataset.requestSizes(request)
         dataloader = makeDataloader(stage.batch, dataset, device, workers=0 if profile else 1)
 
@@ -57,14 +51,8 @@ def loop(dataloader, stage, ckpt, logger, idx):
 
     # sample the generator for fake images
     sampled = sample_like(realFull, ckpt, stage.raycast)
-    if idx < 5000:
-        fakeFull = torch.nn.functional.interpolate(sampled['image'], size=(16, 16), mode='bilinear')
-        fakeHalf = None
-    else:
-        fakeFull = sampled['image']
-        fakeHalf = torch.nn.functional.interpolate(sampled['image'], size=(16, 16), mode='bilinear')
-
-    # fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
+    fakeFull = sampled['image']
+    fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
     logData = {'fake': fakeFull, 'real': realFull}
 
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler

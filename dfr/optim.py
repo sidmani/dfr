@@ -4,9 +4,8 @@ from torch.cuda.amp import autocast
 # WGAN-gp gradient penalty
 # basic idea: the discriminator should have unit gradient along the real-fake line
 def gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler):
-    # epsilon different for each batch item
-    # ignoring that torch.rand is in [0, 1), but wgan-gp specifies [0, 1]
     with autocast():
+        # epsilon different for each batch item
         epsilon = torch.rand(realFull.shape[0], 1, 1, 1, device=realFull.device)
         interpFull = epsilon * realFull + (1.0 - epsilon) * fakeFull
         if realHalf is not None and dis.alpha < 1.0:
@@ -20,7 +19,6 @@ def gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler):
     # original grad calculation was wrong; see:
     # https://stackoverflow.com/questions/53413706/large-wgan-gp-train-loss
     # grad has shape [batch, channels, px, px]
-
     scaledGrad = torch.autograd.grad(outputs=gradScaler.scale(outputs),
                                inputs=inputs,
                                grad_outputs=torch.ones_like(outputs),
