@@ -68,7 +68,7 @@ class Checkpoint:
         self.dis = Discriminator(self.hparams).to(device)
         self.dis.setStage(self.startStage)
 
-        self.gradScaler = GradScaler(init_scale=32768.)
+        self.gradScaler = GradScaler(init_scale=4096.)
 
         self.genOpt = Adam(self.gen.parameters(),
                            self.hparams.learningRate,

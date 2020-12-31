@@ -36,7 +36,6 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
-                # ckpt.dis.setAlpha(1e-3)
                 ckpt.dis.setAlpha(min(1.0, float(idx - startEpoch) / float(stage.fade)))
 
             loop(dataloader, stage, ckpt, logger, idx)
@@ -52,7 +51,8 @@ def loop(dataloader, stage, ckpt, logger, idx):
     # sample the generator for fake images
     sampled = sample_like(realFull, ckpt, stage.raycast)
     fakeFull = sampled['image']
-    fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
+    # fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
+    fakeHalf = torch.nn.functional.interpolate(fakeFull, scale_factor=0.5) if len(batch) > 1 else None
     logData = {'fake': fakeFull, 'real': realFull}
 
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler

@@ -17,7 +17,7 @@ class Stage:
 @dataclass
 class HParams:
     learningRate: float = 1e-4
-    betas: Tuple[int, int] = (0.5, 0.9)
+    betas: Tuple[int, int] = (0.0, 0.9)
     discIter: int = 1
     latentSize: int = 256
     latentStd: float = 3.0
