@@ -12,7 +12,7 @@ if __name__ == "__main__":
         '-d',
         dest='data',
         required=True,
-        help='The source directory for the 3D-R2N2 shapenet rendering dataset'
+        help='The source directory for the images'
     )
     parser.add_argument(
         '-o',

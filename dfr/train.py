@@ -51,16 +51,48 @@ def loop(dataloader, stage, ckpt, logger, idx):
     # sample the generator for fake images
     sampled = sample_like(realFull, ckpt, stage.raycast)
     fakeFull = sampled['image']
-    # fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
-    fakeHalf = torch.nn.functional.interpolate(fakeFull, scale_factor=0.5) if len(batch) > 1 else None
+    fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
+    # fakeHalf = torch.nn.functional.interpolate(fakeFull, scale_factor=0.5) if len(batch) > 1 else None
     logData = {'fake': fakeFull, 'real': realFull}
 
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
+    ### discriminator update ###
+    # the generator's not gonna be updated, so detach it from the grad graph
+    # also possible that generator has been modified in-place, so can't backprop through it
+    # detach() sets requires_grad=False, so reset it to True
+    # need to clone so that in-place ops in CNN are legal
+    detachedFakeFull = fakeFull.detach().clone().requires_grad_()
+    if fakeHalf is not None:
+        detachedFakeHalf = fakeHalf.detach().clone().requires_grad_()
+    else:
+        detachedFakeHalf = None
+
+    penalty = gradientPenalty(dis, realFull, realHalf, detachedFakeFull, detachedFakeHalf, gradScaler)
+
+    with autocast():
+        disFake = dis(detachedFakeFull, detachedFakeHalf).mean()
+        disReal = dis(realFull, realHalf).mean()
+        disLoss = disFake - disReal + penalty * 10.0
+
+    gradScaler.scale(disLoss).backward()
+    logData['discriminator_grad'] = dis.currentBlock().layers[0].weight.grad.detach()
+    gradScaler.step(disOpt)
+    disOpt.zero_grad(set_to_none=True)
+
+    logData['discriminator_real'] = disReal.detach()
+    logData['discriminator_fake'] = disFake.detach()
+    logData['discriminator_total'] = disLoss.detach()
+    logData['penalty'] = penalty.detach()
+    del disReal
+    del disFake
+    del disLoss
+    del penalty
+
     ### generator update ###
     if idx % hparams.discIter == 0:
-        # disable autograd on disciminator params
+        # disable autograd on discriminator params
         for p in dis.parameters():
             p.requires_grad = False
 
@@ -90,32 +122,8 @@ def loop(dataloader, stage, ckpt, logger, idx):
         del genLoss
         del eikonalLoss
 
-    ### discriminator update ###
-    # the generator's not gonna be updated, so detach it from the grad graph
-    # also possible that generator has been modified in-place, so can't backprop through it
-    # detach() sets requires_grad=False, so reset it to True
-    # need to clone so that in-place ops in CNN are legal
-    fakeFull = fakeFull.detach().clone().requires_grad_()
-    if fakeHalf is not None:
-        fakeHalf = fakeHalf.detach().clone().requires_grad_()
-
-    penalty = gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler)
-
-    with autocast():
-        disFake = dis(fakeFull, fakeHalf).mean()
-        disReal = dis(realFull, realHalf).mean()
-        disLoss = disFake - disReal + penalty * 10.0
-
-    gradScaler.scale(disLoss).backward()
-    gradScaler.step(disOpt)
-    disOpt.zero_grad(set_to_none=True)
-
     # step the gradient scaler
     gradScaler.update()
-    logData['discriminator_real'] = disReal.detach()
-    logData['discriminator_fake'] = disFake.detach()
-    logData['discriminator_total'] = disLoss.detach()
-    logData['penalty'] = penalty.detach()
 
     if logger is not None:
         # write the log output

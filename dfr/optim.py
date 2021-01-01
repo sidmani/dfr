@@ -8,13 +8,14 @@ def gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler):
         # epsilon different for each batch item
         epsilon = torch.rand(realFull.shape[0], 1, 1, 1, device=realFull.device)
         interpFull = epsilon * realFull + (1.0 - epsilon) * fakeFull
-        if realHalf is not None and dis.alpha < 1.0:
+        if dis.alpha < 1.0:
             interpHalf = epsilon * realHalf + (1.0 - epsilon) * fakeHalf
             inputs = (interpFull, interpHalf)
         else:
             interpHalf = None
             inputs = interpFull
-        outputs = dis(interpFull, interpHalf)
+
+        outputs, latest = dis(interpFull, interpHalf, wantsLatest=True)
 
     # original grad calculation was wrong; see:
     # https://stackoverflow.com/questions/53413706/large-wgan-gp-train-loss
@@ -25,9 +26,20 @@ def gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler):
                                create_graph=True,
                                retain_graph=True,
                                only_inputs=True)
-
     scale = gradScaler.get_scale()
     grad = [p / scale for p in scaledGrad]
+
+    if dis.alpha < 1.:
+        # during the fading step, the new block's gradient will explode
+        # because it's weighted very low, so its gradient can get large without
+        # affecting the overall penalty. So we have to deal with it individually.
+        scaledLatestGrad = torch.autograd.grad(outputs=gradScaler.scale(latest),
+                                               inputs=interpFull,
+                                               grad_outputs=torch.ones_like(latest),
+                                               create_graph=True,
+                                               retain_graph=True,
+                                               only_inputs=True)[0]
+        latestGrad = scaledLatestGrad / scale
 
     with autocast():
         # square; sum over pixel & channel dims; sqrt
@@ -37,5 +49,12 @@ def gradientPenalty(dis, realFull, realHalf, fakeFull, fakeHalf, gradScaler):
         if len(grad) > 1:
             gradNormHalf = (grad[1] ** 2.0).sum(dim=[1, 2, 3])
             gradNorm = gradNorm + gradNormHalf
+
+        if dis.alpha < 1.0:
+            gradNormLatest = (latestGrad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
+            latestPenalty = ((gradNormLatest - 1.0) ** 2.0).mean()
+        else:
+            latestPenalty = 0.
+
         gradNorm = gradNorm.sqrt()
-        return ((gradNorm - 1.0) ** 2.0).mean()
+        return ((gradNorm - 1.0) ** 2.0).mean() + latestPenalty

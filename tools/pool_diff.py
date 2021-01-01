@@ -55,15 +55,16 @@ def main(args):
     scaler = GradScaler(init_scale=32768.)
 
     ret_1 = raycast(phis, thetas, [32], hp.fov, latents, sdf, scaler)['image'][0]
-    ret_2 = raycast(phis, thetas, [32, 4], hp.fov, latents, sdf, scaler)['image'][0]
-    # avgPooled = torch.nn.functional.avg_pool2d(ret_2, 4)
+    ret_2 = raycast(phis, thetas, [32, 2], hp.fov, latents, sdf, scaler)['image'][0]
+    # downsampled = torch.nn.functional.avg_pool2d(ret_2, 2)
+    downsampled = torch.nn.functional.interpolate(ret_2.unsqueeze(0), scale_factor=0.5).squeeze(0)
+
     # bilinear = transforms.functional.resize(ret_2, [32, 32])
-    print(ret_2.shape)
-    bilinear = torch.nn.functional.interpolate(ret_2.unsqueeze(0), size=[32, 32], mode='bilinear').squeeze(0)
+    # bilinear = torch.nn.functional.interpolate(ret_2.unsqueeze(0), size=[32, 32], mode='bilinear').squeeze(0)
     # print((avgPooled - bilinear).abs().mean().item())
 
     obj1 = ret_1.permute(1, 2, 0).cpu().detach().numpy()
-    obj2 = bilinear.permute(1, 2, 0).cpu().detach().numpy()
+    obj2 = downsampled.permute(1, 2, 0).cpu().detach().numpy()
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 

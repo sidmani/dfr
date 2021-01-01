@@ -20,6 +20,8 @@ class Logger:
 
         # if idx % 200 == 0:
         #     self.writeFixedSamples(idx)
+        if idx % 50 == 0:
+            self.logger.add_histogram('conv activation', self.ckpt.dis.latestX, global_step=idx)
 
         if self.gradientData and idx % 30 == 0:
             self.writeGradientData(data, idx)
@@ -33,6 +35,7 @@ class Logger:
         self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)
         self.logger.add_scalar('discriminator/total', data['discriminator_total'], global_step=idx)
         self.logger.add_scalar('discriminator/penalty', data['penalty'], global_step=idx)
+        self.logger.add_scalar('discriminator/alpha', self.ckpt.dis.alpha, global_step=idx)
         self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
         self.logger.add_scalar('discriminator/without_penalty', data['discriminator_fake'] - data['discriminator_real'], global_step=idx)
 
