@@ -36,7 +36,8 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
-                ckpt.dis.setAlpha(min(1.0, float(idx - startEpoch) / float(stage.fade)))
+                # must be wrt stage.start, not startEpoch (checkpoint may start later)
+                ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
 
             loop(dataloader, stage, ckpt, logger, idx)
 

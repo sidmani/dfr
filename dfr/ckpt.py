@@ -30,7 +30,7 @@ def nextVersion(runDir):
     return str(max(versions) + 1)
 
 class Checkpoint:
-    def __init__(self, runDir, version, device, epoch=None, noLog=False):
+    def __init__(self, runDir, version, device, epoch=None, noLog=False, fork=None):
         self.noLog = noLog
 
         # if no version is provided, create one
@@ -38,14 +38,19 @@ class Checkpoint:
             version = nextVersion(runDir)
 
         # get the latest epoch for the provided version
-        self.loc = runDir / version
+        # self.loc = runDir / version
+        if fork is None:
+            self.loc = runDir / version
+        else:
+            self.loc = runDir / fork
+
         if epoch is None:
-            epoch = latestEpoch(self.loc)
+            epoch = latestEpoch(runDir / version)
 
         # if the version exists, load it
         self.startStage = 0
         if epoch is not None:
-            ckpt = torch.load(self.loc / f"e{epoch}.pt", map_location=device)
+            ckpt = torch.load(runDir / version / f"e{epoch}.pt", map_location=device)
             self.hparams = ckpt['hparams']
             self.examples = ckpt['examples']
             self.startEpoch = epoch + 1

@@ -17,6 +17,18 @@ def setArgs(parser):
         help='The folder of source images',
     )
     parser.add_argument(
+        '--fork',
+        '-f',
+        dest='fork',
+        help='fork a previous run'
+    )
+    parser.add_argument(
+        '--epoch',
+        '-e',
+        dest='epoch',
+        type=int,
+    )
+    parser.add_argument(
         '--steps',
         dest='steps',
         default=10 ** 5,
@@ -69,7 +81,7 @@ def setArgs(parser):
 def main(args):
     device = torch.device('cuda')
     args.runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, noLog=args.no_log)
+    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, epoch=args.epoch, noLog=args.no_log, fork=args.fork)
 
     if args.no_log:
         logger = None
