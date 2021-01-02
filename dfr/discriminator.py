@@ -18,47 +18,47 @@ from tools.stats import tensor_stats
 # Questions:
 # - Why does loss jump when increasing scale? Shouldn't it be smooth?
 
-class EqualLR:
-    def __init__(self, name):
-        self.name = name
+# class EqualLR:
+#     def __init__(self, name):
+#         self.name = name
 
-    def compute_weight(self, module):
-        weight = getattr(module, self.name + '_orig')
-        fan_in = weight.data.size(1) * weight.data[0][0].numel()
+#     def compute_weight(self, module):
+#         weight = getattr(module, self.name + '_orig')
+#         fan_in = weight.data.size(1) * weight.data[0][0].numel()
 
-        return weight * np.sqrt(2 / fan_in)
+#         return weight * np.sqrt(2 / fan_in)
 
-    @staticmethod
-    def apply(module, name):
-        fn = EqualLR(name)
+#     @staticmethod
+#     def apply(module, name):
+#         fn = EqualLR(name)
 
-        weight = getattr(module, name)
-        del module._parameters[name]
-        module.register_parameter(name + '_orig', nn.Parameter(weight.data))
-        module.register_forward_pre_hook(fn)
+#         weight = getattr(module, name)
+#         del module._parameters[name]
+#         module.register_parameter(name + '_orig', nn.Parameter(weight.data))
+#         module.register_forward_pre_hook(fn)
 
-        return fn
+#         return fn
 
-    def __call__(self, module, input):
-        weight = self.compute_weight(module)
-        setattr(module, self.name, weight)
+#     def __call__(self, module, input):
+#         weight = self.compute_weight(module)
+#         setattr(module, self.name, weight)
 
-def equal_lr(module, name='weight'):
-    EqualLR.apply(module, name)
+# def equal_lr(module, name='weight'):
+#     EqualLR.apply(module, name)
 
-    return module
+#     return module
 
-class EqualConv2d(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super().__init__()
+# class EqualConv2d(nn.Module):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__()
 
-        conv = nn.Conv2d(*args, **kwargs)
-        conv.weight.data.normal_()
-        conv.bias.data.zero_()
-        self.conv = equal_lr(conv)
+#         conv = nn.Conv2d(*args, **kwargs)
+#         conv.weight.data.normal_()
+#         conv.bias.data.zero_()
+#         self.conv = equal_lr(conv)
 
-    def forward(self, input):
-        return self.conv(input)
+#     def forward(self, input):
+#         return self.conv(input)
 
 class ProgressiveBlock(nn.Module):
     def __init__(self, inChannels, outChannels, activation):
@@ -78,18 +78,10 @@ class ProgressiveBlock(nn.Module):
         )
         self.inChannels = inChannels
         self.outChannels = outChannels
+        self.ok = True
 
     def forward(self, x):
-        # tensor_stats(x, 'before')
-        # x = self.layers[0](x)
-        # tensor_stats(x, 'after_conv_0')
-        # x = self.layers[1](x)
-        # x = self.layers[2](x)
-        # tensor_stats(x, 'after_conv_1')
-        # x = self.layers[3](x)
-        # x = self.layers[4](x)
-        # tensor_stats(x, 'after_avg_pool')
-        # return x
+        assert self.ok
         return self.layers(x)
 
 class Discriminator(nn.Module):
@@ -104,7 +96,7 @@ class Discriminator(nn.Module):
             ProgressiveBlock(384, 384, self.activation),
             ProgressiveBlock(384, 384, self.activation),
         ])
-        self.initBlockCount = len(self.blocks)
+        self.stageCount = len(hparams.stages)
 
         # 384x2x2 -> 1x1x1
         # even-sized convolutions have issues
@@ -128,30 +120,22 @@ class Discriminator(nn.Module):
     def setAlpha(self, alpha):
         self.alpha = alpha
 
-    def currentBlock(self):
-        return self.blocks[-(self.initBlockCount + 1) - self.stage]
-
-    def forward(self, img, downsampled, wantsLatest=False):
+    def forward(self, img, downsampled, intermediate=False):
+        for block in self.blocks:
+            block.ok = True
         # the block corresponding to the current stage
         x = self.adapter[self.stage](img)
         x = self.activation(x)
-        x = self.currentBlock()(x)
-        if wantsLatest:
-            latest = x
-        self.latestX = x.detach()
-
+        x = self.blocks[self.stageCount - self.stage - 1](x)
+        self.blocks[self.stageCount - self.stage - 1].ok = False
         # the faded value from the previous stage
         # assumes downsampled is not None
         if self.alpha < 1.0:
             # first stage can't have alpha < 1, so self.stage - 1 >= 0
             x2 = self.adapter[self.stage - 1](downsampled)
-            x2 = self.activation(x2)
-            x = (1 - self.alpha) * x2 + self.alpha * x
-            # del x2
+            x = (1.0 - self.alpha) * x2 + self.alpha * x
 
-        for block in self.blocks[-(self.initBlockCount + 1) - self.stage + 1:]:
+        for block in self.blocks[self.stageCount - self.stage:]:
             x = block(x)
-        x = self.output(x)
-        if wantsLatest:
-            return x, latest
-        return x
+            block.ok = False
+        return self.output(x)

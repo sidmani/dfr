@@ -75,12 +75,15 @@ class Checkpoint:
 
         self.gradScaler = GradScaler(init_scale=4096.)
 
+        eps = 1e-8
         self.genOpt = Adam(self.gen.parameters(),
                            self.hparams.learningRate,
-                           betas=self.hparams.betas)
+                           betas=self.hparams.betas,
+                           eps=eps)
         self.disOpt = Adam(self.dis.parameters(),
                            self.hparams.learningRate,
-                           betas=self.hparams.betas)
+                           betas=self.hparams.betas,
+                           eps=eps)
 
         if ckpt is not None:
             self.dis.load_state_dict(ckpt['dis'])

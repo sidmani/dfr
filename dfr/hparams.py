@@ -27,9 +27,9 @@ class HParams:
     sdfWidth: int = 512
     stages: Tuple[Stage, ...] = (
         Stage(start=0, raycast=[16], batch=32, fade=0, discChannels=384),
-        Stage(start=20000, raycast=[16, 2], batch=16, fade=10000, discChannels=384),
-        Stage(start=50000, raycast=[16, 4], batch=16, fade=10000, discChannels=256),
-        Stage(start=100000, raycast=[32, 4], batch=8, fade=10000, discChannels=128),
+        Stage(start=5000, raycast=[16, 2], batch=16, fade=2000, discChannels=384),
+        # Stage(start=50000, raycast=[16, 4], batch=16, fade=10000, discChannels=256),
+        # Stage(start=100000, raycast=[32, 4], batch=8, fade=10000, discChannels=128),
     )
 
     def __post_init__(self):

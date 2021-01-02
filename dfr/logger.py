@@ -20,8 +20,10 @@ class Logger:
 
         # if idx % 200 == 0:
         #     self.writeFixedSamples(idx)
-        if idx % 50 == 0:
-            self.logger.add_histogram('conv activation', self.ckpt.dis.latestX, global_step=idx)
+        # if idx % 50 == 0:
+        #     self.logger.add_histogram('conv activation x', self.ckpt.dis.latestX, global_step=idx)
+        #     self.logger.add_histogram('conv activation x2', self.ckpt.dis.latestX2, global_step=idx)
+        #     self.logger.add_histogram('conv activation xOut', self.ckpt.dis.xOut, global_step=idx)
 
         if self.gradientData and idx % 30 == 0:
             self.writeGradientData(data, idx)

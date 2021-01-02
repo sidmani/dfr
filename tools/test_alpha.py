@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dfr.ckpt import Checkpoint
 from dfr.raycast import sample
+from dfr.optim import imageNormSq, penalty, penaltyUpper
 from dfr.dataset import ImageDataset, makeDataloader
 
 def main(args):
@@ -29,35 +30,46 @@ def main(args):
     # values = []
     # alphas = []
     ckpt.dis.setStage(1)
-    ckpt.dis.setAlpha(0.99)
-    out, latest = ckpt.dis(*batch, wantsLatest=True)
-    grad = torch.autograd.grad(outputs=latest,
-                               inputs=batch[0],
-                               grad_outputs=torch.ones_like(latest),
-                               create_graph=True,
-                               retain_graph=True,
-                               only_inputs=True)[0]
-    tensor_stats(grad, 'grad')
-    tensor_stats(ckpt.dis.latestX, 'values')
+    ckpt.dis.setAlpha(0.3)
+    out = ckpt.dis(*batch)
+    # grad = torch.autograd.grad(outputs=ckpt.dis.latestX,
+    #                            inputs=batch[0],
+    #                            grad_outputs=torch.ones_like(ckpt.dis.latestX),
+    #                            create_graph=True,
+    #                            retain_graph=True,
+    #                            only_inputs=True)[0]
+    # tensor_stats(grad, 'grad')
+    # tensor_stats(ckpt.dis.latestX, 'x')
+    # tensor_stats(ckpt.dis.latestX2, 'x2')
+    # tensor_stats(ckpt.dis.xOut, 'x_out')
+    # # print(penaltyUpper(imageNormSq(grad)))
+    # tensor_stats(ckpt.dis.latestX, 'values')
 
     # tensor_stats(weight0.grad, 'grad_weight0')
     # tensor_stats(weight1.grad, 'grad_weight1')
     # block = ckpt.dis.currentBlock()
     # tensor_stats(block.layers[0].bias.data, 'weights')
 
+    # alphas = []
     # xs = []
     # x2s = []
+    # xOuts = []
     # assert ckpt.dis.stage > 0
-    # total = 100
+    # total = 50
     # for i in tqdm(range(51)):
     #     alpha = float(i) / float(total)
     #     alphas.append(alpha)
     #     ckpt.dis.setAlpha(alpha)
-    #     value = ckpt.dis(*batch).mean()
-    #     # xs.append(hook['x'])
-    #     # x2s.append(hook['x2'])
-    #     values.append(value.item())
-    # plt.plot(alphas, values)
+    #     ckpt.dis(*batch)
+    #     x = ckpt.dis.latestX
+    #     x2 = ckpt.dis.latestX2
+    #     xOut = ckpt.dis.xOut
+    #     xs.append(torch.mean(x).item())
+    #     x2s.append(torch.mean(x2).item())
+    #     xOuts.append(torch.mean(xOut).item())
+    # plt.plot(alphas, xs)
+    # plt.plot(alphas, x2s, color='green')
+    # plt.plot(alphas, xOuts, color='red')
 
 #     x_variances = []
 #     x_means = []
@@ -85,7 +97,7 @@ def main(args):
     #     values_fake.append(value)
     # plt.plot(alphas_fake, values_fake, color='red')
 
-    # plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     parser = ArgumentParser()
