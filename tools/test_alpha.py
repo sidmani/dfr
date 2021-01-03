@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dfr.ckpt import Checkpoint
 from dfr.raycast import sample
-from dfr.optim import imageNormSq, penalty, penaltyUpper
 from dfr.dataset import ImageDataset, makeDataloader
+from .grad_graph import register_hooks
 
 def main(args):
     device = torch.device('cuda')
@@ -30,8 +30,13 @@ def main(args):
     # values = []
     # alphas = []
     ckpt.dis.setStage(1)
-    ckpt.dis.setAlpha(0.3)
-    out = ckpt.dis(*batch)
+    ckpt.dis.setAlpha(0.5)
+    out = ckpt.dis(*batch).mean()
+    get_dot = register_hooks(out)
+    out.backward()
+    dot = get_dot()
+    dot.save('grad_test.dot')
+
     # grad = torch.autograd.grad(outputs=ckpt.dis.latestX,
     #                            inputs=batch[0],
     #                            grad_outputs=torch.ones_like(ckpt.dis.latestX),

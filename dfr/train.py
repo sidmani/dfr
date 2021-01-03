@@ -5,6 +5,7 @@ from .raycast import sample_like
 from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import gradientPenalty
+from tools.grad_graph import register_hooks
 
 def train(datapath, device, steps, ckpt, logger, profile=False):
     stages = ckpt.hparams.stages
@@ -36,7 +37,10 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
+                # if idx - stage.start < 1000:
                 ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
+                # else:
+                #     ckpt.dis.setAlpha(max(0.0, 1.0 - float(idx - stage.start) / float(stage.fade)))
             loop(dataloader, stage, ckpt, logger, idx)
 
 # separate the loop function to make sure all variables go out of scope
@@ -69,14 +73,22 @@ def loop(dataloader, stage, ckpt, logger, idx):
         detachedFakeHalf = None
 
     penalty = gradientPenalty(dis, realFull, realHalf, detachedFakeFull, detachedFakeHalf, gradScaler)
+    # logData.update(pData)
 
     with autocast():
         disFake = dis(detachedFakeFull, detachedFakeHalf).mean()
         disReal = dis(realFull, realHalf).mean()
         disLoss = disFake - disReal + penalty * 10.0
 
+    # if idx > 5000:
+    #     get_dot = register_hooks(disLoss)
+    #     # gradScaler.scale(disLoss).backward()
+    #     disLoss.backward()
+    #     dot = get_dot()
+    #     dot.save('grad_bad.dot')
+    #     assert False
+
     gradScaler.scale(disLoss).backward()
-    logData['discriminator_grad'] = dis.currentBlock().layers[0].weight.grad.detach()
     gradScaler.step(disOpt)
     disOpt.zero_grad(set_to_none=True)
 

@@ -121,21 +121,21 @@ class Discriminator(nn.Module):
         self.alpha = alpha
 
     def forward(self, img, downsampled, intermediate=False):
-        for block in self.blocks:
-            block.ok = True
         # the block corresponding to the current stage
         x = self.adapter[self.stage](img)
         x = self.activation(x)
         x = self.blocks[self.stageCount - self.stage - 1](x)
-        self.blocks[self.stageCount - self.stage - 1].ok = False
+
         # the faded value from the previous stage
         # assumes downsampled is not None
         if self.alpha < 1.0:
             # first stage can't have alpha < 1, so self.stage - 1 >= 0
-            x2 = self.adapter[self.stage - 1](downsampled)
+            # x2 = torch.nn.functional.avg_pool2d(img, 2)
+            x2 = torch.nn.functional.interpolate(img, scale_factor=0.5, mode='bilinear')
+            x2 = self.adapter[self.stage - 1](x2)
+            x2 = self.activation(x2)
             x = (1.0 - self.alpha) * x2 + self.alpha * x
 
         for block in self.blocks[self.stageCount - self.stage:]:
             x = block(x)
-            block.ok = False
         return self.output(x)
