@@ -113,6 +113,7 @@ class Discriminator(nn.Module):
             self.blocks.insert(0, block)
 
         self.alpha = 1.
+        self.hparams = hparams
 
     def setStage(self, idx):
         self.stage = idx
@@ -120,22 +121,30 @@ class Discriminator(nn.Module):
     def setAlpha(self, alpha):
         self.alpha = alpha
 
-    def forward(self, img, downsampled, intermediate=False):
+    def forward(self, img, sample='bilinear'):
+        size = self.hparams.stages[self.stage].imageSize
+        if img.shape[2] != size:
+            full = torch.nn.functional.interpolate(img, size=(size, size), mode=sample)
+        else:
+            full = img
+
         # the block corresponding to the current stage
-        x = self.adapter[self.stage](img)
+        x = self.adapter[self.stage](full)
         x = self.activation(x)
         x = self.blocks[self.stageCount - self.stage - 1](x)
 
         # the faded value from the previous stage
-        # assumes downsampled is not None
         if self.alpha < 1.0:
-            # first stage can't have alpha < 1, so self.stage - 1 >= 0
-            # x2 = torch.nn.functional.avg_pool2d(img, 2)
-            x2 = torch.nn.functional.interpolate(img, scale_factor=0.5, mode='bilinear')
-            x2 = self.adapter[self.stage - 1](x2)
+            # create the half-size image by directly downsampling from the original
+            oldSize = self.hparams.stages[self.stage - 1].imageSize
+            half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode=sample)
+            x2 = self.adapter[self.stage - 1](half)
             x2 = self.activation(x2)
+            # linear interpolation between new & old
             x = (1.0 - self.alpha) * x2 + self.alpha * x
 
         for block in self.blocks[self.stageCount - self.stage:]:
             x = block(x)
+
+        # no sigmoid, since that's done by BCEWithLogitsLoss
         return self.output(x)

@@ -1,15 +1,15 @@
 import torch
-import numpy as np
+import torch.nn as nn
 from torch.cuda.amp import autocast
 from .raycast import sample_like
 from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
-from .optim import gradientPenalty
+from .optim import R1
 from tools.grad_graph import register_hooks
 
 def train(datapath, device, steps, ckpt, logger, profile=False):
     stages = ckpt.hparams.stages
-    dataset = ImageDataset(datapath, [s.imageSize for s in stages])
+    dataset = ImageDataset(datapath)
 
     for i in range(ckpt.startStage, len(stages)):
         stage = stages[i]
@@ -28,35 +28,25 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
             break
 
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
-        request = [stage.imageSize]
-        if i > 0:
-            request.append(stages[i - 1].imageSize)
-        dataset.requestSizes(request)
         dataloader = makeDataloader(stage.batch, dataset, device, workers=0 if profile else 1)
 
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
-                # if idx - stage.start < 1000:
                 ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
-                # else:
-                #     ckpt.dis.setAlpha(max(0.0, 1.0 - float(idx - stage.start) / float(stage.fade)))
+                # ckpt.dis.setAlpha(0.0)
             loop(dataloader, stage, ckpt, logger, idx)
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
 def loop(dataloader, stage, ckpt, logger, idx):
     # get the next batch of real images
-    batch = next(dataloader)
-    realFull = batch[0]
-    realHalf = batch[1] if len(batch) > 1 else None
+    real = next(dataloader)
 
     # sample the generator for fake images
-    sampled = sample_like(realFull, ckpt, stage.raycast)
-    fakeFull = sampled['image']
-    fakeHalf = torch.nn.functional.avg_pool2d(fakeFull, 2) if len(batch) > 1 else None
-    # fakeHalf = torch.nn.functional.interpolate(fakeFull, scale_factor=0.5) if len(batch) > 1 else None
-    logData = {'fake': fakeFull, 'real': realFull}
+    sampled = sample_like(real, ckpt, stage.raycast)
+    fake = sampled['image']
+    logData = {'fake': fake, 'real': real}
 
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
@@ -66,52 +56,50 @@ def loop(dataloader, stage, ckpt, logger, idx):
     # also possible that generator has been modified in-place, so can't backprop through it
     # detach() sets requires_grad=False, so reset it to True
     # need to clone so that in-place ops in CNN are legal
-    detachedFakeFull = fakeFull.detach().clone().requires_grad_()
-    if fakeHalf is not None:
-        detachedFakeHalf = fakeHalf.detach().clone().requires_grad_()
-    else:
-        detachedFakeHalf = None
+    detachedFake = fake.detach().clone().requires_grad_()
+    criterion = nn.BCEWithLogitsLoss()
 
-    penalty = gradientPenalty(dis, realFull, realHalf, detachedFakeFull, detachedFakeHalf, gradScaler)
-    # logData.update(pData)
-
-    with autocast():
-        disFake = dis(detachedFakeFull, detachedFakeHalf).mean()
-        disReal = dis(realFull, realHalf).mean()
-        disLoss = disFake - disReal + penalty * 10.0
-
-    # if idx > 5000:
-    #     get_dot = register_hooks(disLoss)
-    #     # gradScaler.scale(disLoss).backward()
-    #     disLoss.backward()
-    #     dot = get_dot()
-    #     dot.save('grad_bad.dot')
-    #     assert False
-
-    gradScaler.scale(disLoss).backward()
-    gradScaler.step(disOpt)
     disOpt.zero_grad(set_to_none=True)
+    real.requires_grad = True
+    with autocast():
+        disReal = dis(real).view(-1)
+        label = torch.full((real.shape[0],), 1.0, device=disReal.device)
+        disLossReal = criterion(disReal, label)
 
-    logData['discriminator_real'] = disReal.detach()
-    logData['discriminator_fake'] = disFake.detach()
-    logData['discriminator_total'] = disLoss.detach()
+        label = torch.full((real.shape[0],), 0.0, device=disReal.device)
+        disFake = dis(detachedFake, sample='nearest').view(-1)
+        disLossFake = criterion(disFake, label)
+
+    # note that we need to apply sigmoid, since BCEWithLogitsLoss does that internally
+    penalty = 10 * R1(real, torch.sigmoid(disReal), gradScaler)
+
+    gradScaler.scale(disLossReal).backward(retain_graph=True)
+    gradScaler.scale(disLossFake).backward()
+    gradScaler.scale(penalty).backward()
+    gradScaler.step(disOpt)
+
+    logData['discriminator_real'] = torch.sigmoid(disReal).mean().detach()
+    logData['discriminator_fake'] = torch.sigmoid(disFake).mean().detach()
+    logData['discriminator_total'] = (disLossFake + disLossReal).detach()
     logData['penalty'] = penalty.detach()
     del disReal
     del disFake
-    del disLoss
-    del penalty
 
     # disable autograd on discriminator params
     for p in dis.parameters():
         p.requires_grad = False
 
+    genOpt.zero_grad(set_to_none=True)
     with autocast():
         # normals have already been scaled to correct values
         # the eikonal loss encourages the sdf to have unit gradient
         eikonalLoss = ((sampled['normalLength'] - 1.0) ** 2.0).mean()
 
-        # check what the discriminator thinks
-        genLoss = -dis(fakeFull, fakeHalf).mean() + hparams.eikonal * eikonalLoss
+        # the discriminator has been updated so we have to run the forward pass again
+        # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
+        label.fill_(1.)
+        output = dis(fake, sample='nearest').view(-1)
+        genLoss = criterion(output, label) + hparams.eikonal * eikonalLoss
 
     # graph: genLoss -> discriminator -> generator
     gradScaler.scale(genLoss).backward()
@@ -119,12 +107,6 @@ def loop(dataloader, stage, ckpt, logger, idx):
 
     for p in dis.parameters():
         p.requires_grad = True
-
-    # reset the generator, since it's done being differentiated
-    genOpt.zero_grad(set_to_none=True)
-    # the gen's params have changed, so can't backwards again on existing genLoss
-    # so we have to run the discriminator again
-    # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
 
     logData['generator_loss'] = genLoss.detach()
     logData['eikonal_loss'] = eikonalLoss.detach()
