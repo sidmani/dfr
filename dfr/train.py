@@ -6,8 +6,9 @@ from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import R1
 from tools.grad_graph import register_hooks
+from .flags import Flags
 
-def train(datapath, device, steps, ckpt, logger, profile=False):
+def train(datapath, device, steps, ckpt, logger):
     stages = ckpt.hparams.stages
     dataset = ImageDataset(datapath)
 
@@ -28,13 +29,12 @@ def train(datapath, device, steps, ckpt, logger, profile=False):
             break
 
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
-        dataloader = makeDataloader(stage.batch, dataset, device, workers=0 if profile else 1)
+        dataloader = makeDataloader(stage.batch, dataset, device)
 
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
                 ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
-                # ckpt.dis.setAlpha(0.0)
             loop(dataloader, stage, ckpt, logger, idx)
 
 # separate the loop function to make sure all variables go out of scope
@@ -61,8 +61,8 @@ def loop(dataloader, stage, ckpt, logger, idx):
 
     disOpt.zero_grad(set_to_none=True)
     real.requires_grad = True
-    with autocast():
-        disReal = dis(real).view(-1)
+    with autocast(enabled=Flags.AMP):
+        disReal = dis(real, sample='nearest').view(-1)
         label = torch.full((real.shape[0],), 1.0, device=disReal.device)
         disLossReal = criterion(disReal, label)
 
@@ -84,12 +84,15 @@ def loop(dataloader, stage, ckpt, logger, idx):
     del disReal
     del disFake
 
+    if 1.0 - logData['discriminator_real'].item() < 1e-4 and idx > 1000:
+        raise Exception('Training failed; discriminator is perfect.')
+
     # disable autograd on discriminator params
     for p in dis.parameters():
         p.requires_grad = False
 
     genOpt.zero_grad(set_to_none=True)
-    with autocast():
+    with autocast(enabled=Flags.AMP):
         # normals have already been scaled to correct values
         # the eikonal loss encourages the sdf to have unit gradient
         eikonalLoss = ((sampled['normalLength'] - 1.0) ** 2.0).mean()
@@ -120,5 +123,5 @@ def loop(dataloader, stage, ckpt, logger, idx):
         logger.log(logData, idx)
 
     # save every 100 iterations
-    if idx % 100 == 0:
+    if not Flags.silent and idx % 100 == 0:
         ckpt.save(idx, overwrite=True)

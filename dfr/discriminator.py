@@ -18,47 +18,47 @@ from tools.stats import tensor_stats
 # Questions:
 # - Why does loss jump when increasing scale? Shouldn't it be smooth?
 
-# class EqualLR:
-#     def __init__(self, name):
-#         self.name = name
+class EqualLR:
+    def __init__(self, name):
+        self.name = name
 
-#     def compute_weight(self, module):
-#         weight = getattr(module, self.name + '_orig')
-#         fan_in = weight.data.size(1) * weight.data[0][0].numel()
+    def compute_weight(self, module):
+        weight = getattr(module, self.name + '_orig')
+        fan_in = weight.data.size(1) * weight.data[0][0].numel()
 
-#         return weight * np.sqrt(2 / fan_in)
+        return weight * np.sqrt(2 / fan_in)
 
-#     @staticmethod
-#     def apply(module, name):
-#         fn = EqualLR(name)
+    @staticmethod
+    def apply(module, name):
+        fn = EqualLR(name)
 
-#         weight = getattr(module, name)
-#         del module._parameters[name]
-#         module.register_parameter(name + '_orig', nn.Parameter(weight.data))
-#         module.register_forward_pre_hook(fn)
+        weight = getattr(module, name)
+        del module._parameters[name]
+        module.register_parameter(name + '_orig', nn.Parameter(weight.data))
+        module.register_forward_pre_hook(fn)
 
-#         return fn
+        return fn
 
-#     def __call__(self, module, input):
-#         weight = self.compute_weight(module)
-#         setattr(module, self.name, weight)
+    def __call__(self, module, input):
+        weight = self.compute_weight(module)
+        setattr(module, self.name, weight)
 
-# def equal_lr(module, name='weight'):
-#     EqualLR.apply(module, name)
+def equal_lr(module, name='weight'):
+    EqualLR.apply(module, name)
 
-#     return module
+    return module
 
-# class EqualConv2d(nn.Module):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__()
+class EqualConv2d(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
 
-#         conv = nn.Conv2d(*args, **kwargs)
-#         conv.weight.data.normal_()
-#         conv.bias.data.zero_()
-#         self.conv = equal_lr(conv)
+        conv = nn.Conv2d(*args, **kwargs)
+        conv.weight.data.normal_()
+        conv.bias.data.zero_()
+        self.conv = equal_lr(conv)
 
-#     def forward(self, input):
-#         return self.conv(input)
+    def forward(self, input):
+        return self.conv(input)
 
 class ProgressiveBlock(nn.Module):
     def __init__(self, inChannels, outChannels, activation):
@@ -78,10 +78,8 @@ class ProgressiveBlock(nn.Module):
         )
         self.inChannels = inChannels
         self.outChannels = outChannels
-        self.ok = True
 
     def forward(self, x):
-        assert self.ok
         return self.layers(x)
 
 class Discriminator(nn.Module):

@@ -2,6 +2,7 @@ import torch
 from torch.cuda.amp import autocast
 import numpy as np
 from .ray import rotateAxes, multiscale
+from ..flags import Flags
 
 def sample_like(other, ckpt, scales):
     batchSize = other.shape[0]
@@ -27,7 +28,7 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
         critPoints = critPoints[sphereMask]
     critPoints.requires_grad = True
 
-    with autocast():
+    with autocast(enabled=Flags.AMP):
         # sample the critical points with autograd enabled
         values, textures = sdf(critPoints, latents, sphereMask)
     del latents
@@ -42,7 +43,7 @@ def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3,
                 only_inputs=True)[0]
     normals = scaledNormals / gradScaler.get_scale()
 
-    with autocast():
+    with autocast(enabled=Flags.AMP):
         notHitMask = values > threshold
         normalLength = normals.norm(dim=1)
         # need epsilon in denominator for numerical stability

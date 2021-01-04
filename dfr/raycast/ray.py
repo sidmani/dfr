@@ -1,6 +1,7 @@
 import torch
 from torch.cuda.amp import autocast
 import numpy as np
+from ..flags import Flags
 
 def rotateAxes(phis, thetas):
     cos_theta = torch.cos(thetas).unsqueeze(1)
@@ -123,7 +124,7 @@ def sphereTrace(rays, origin, planes, latents, sdf, threshold, dtype, steps=16):
             break
 
         # evaluate the targets
-        with autocast():
+        with autocast(enabled=Flags.AMP):
             values = sdf(targets, latents, mask, geomOnly=True).squeeze(1).type(dtype)
 
         del targets

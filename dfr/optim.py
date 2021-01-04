@@ -1,5 +1,6 @@
 import torch
 from torch.cuda.amp import autocast
+from .flags import Flags
 
 # R1 gradient penalty (Mescheder et al., 2018)
 def R1(real, disReal, gradScaler):
@@ -11,7 +12,7 @@ def R1(real, disReal, gradScaler):
                                      only_inputs=True)[0]
     scale = gradScaler.get_scale()
     grad = scaledGrad / scale
-    with autocast():
+    with autocast(enabled=Flags.AMP):
         # note that grad has shape NCHW
         # so we sum over channel, height, weight dims
         # and take mean over batch (N) dimension

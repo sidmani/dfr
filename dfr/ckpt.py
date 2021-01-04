@@ -4,6 +4,7 @@ from torch.optim import Adam
 from .discriminator import Discriminator
 from .sdfNetwork import SDFNetwork
 from .hparams import HParams
+from .flags import Flags
 from torch.cuda.amp import GradScaler
 
 def latestEpoch(loc):
@@ -30,9 +31,7 @@ def nextVersion(runDir):
     return str(max(versions) + 1)
 
 class Checkpoint:
-    def __init__(self, runDir, version, device, epoch=None, noLog=False, fork=None, override=False):
-        self.noLog = noLog
-
+    def __init__(self, runDir, version, device, epoch=None, fork=None, override=False):
         # if no version is provided, create one
         if version is None:
             version = nextVersion(runDir)
@@ -63,8 +62,6 @@ class Checkpoint:
                     self.startStage = stageIdx
         else:
             ckpt = None
-            if not noLog:
-                self.loc.mkdir(exist_ok=True)
             self.hparams = HParams()
             self.examples = torch.normal(
                     mean=0.0,
@@ -77,7 +74,7 @@ class Checkpoint:
         self.dis = Discriminator(self.hparams).to(device)
         self.dis.setStage(self.startStage)
 
-        self.gradScaler = GradScaler(init_scale=4096.)
+        self.gradScaler = GradScaler(init_scale=4096., enabled=Flags.AMP)
 
         eps = 1e-8
         self.genOpt = Adam(self.gen.parameters(),
@@ -97,8 +94,7 @@ class Checkpoint:
             self.gradScaler.load_state_dict(ckpt['gradScaler'])
 
     def save(self, epoch, overwrite=True):
-        if self.noLog:
-            return
+        self.loc.mkdir(exist_ok=True)
 
         if overwrite:
             saved = self.loc.glob('*.pt')

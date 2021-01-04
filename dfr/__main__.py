@@ -6,6 +6,7 @@ from pathlib import Path
 from .train import train
 from .ckpt import Checkpoint
 from .logger import Logger
+from .flags import Flags
 
 def setArgs(parser):
     parser.add_argument(
@@ -87,7 +88,10 @@ def setArgs(parser):
 def main(args):
     device = torch.device('cuda')
     args.runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, epoch=args.epoch, noLog=args.no_log, fork=args.fork, override=args.override_hp)
+    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, epoch=args.epoch, fork=args.fork, override=args.override_hp)
+
+    Flags.silent = args.no_log
+    Flags.profile = args.profile
 
     if args.no_log:
         logger = None
@@ -101,7 +105,7 @@ def main(args):
 
     # selects best convolution algorithm; yields ~1.5x overall speedup
     torch.backends.cudnn.benchmark = True
-    train(args.data, device, steps=args.steps, ckpt=ckpt, logger=logger, profile=args.profile)
+    train(args.data, device, steps=args.steps, ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
