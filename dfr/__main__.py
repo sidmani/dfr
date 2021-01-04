@@ -77,11 +77,17 @@ def setArgs(parser):
         default=Path.cwd() / 'runs',
         type=Path,
     )
+    parser.add_argument(
+        '--override-hp',
+        dest='override_hp',
+        action='store_true',
+        default=False
+    )
 
 def main(args):
     device = torch.device('cuda')
     args.runDir.mkdir(exist_ok=True)
-    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, epoch=args.epoch, noLog=args.no_log, fork=args.fork)
+    ckpt = Checkpoint(args.runDir, version=args.ckpt, device=device, epoch=args.epoch, noLog=args.no_log, fork=args.fork, override=args.override_hp)
 
     if args.no_log:
         logger = None

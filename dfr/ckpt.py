@@ -30,7 +30,7 @@ def nextVersion(runDir):
     return str(max(versions) + 1)
 
 class Checkpoint:
-    def __init__(self, runDir, version, device, epoch=None, noLog=False, fork=None):
+    def __init__(self, runDir, version, device, epoch=None, noLog=False, fork=None, override=False):
         self.noLog = noLog
 
         # if no version is provided, create one
@@ -51,7 +51,11 @@ class Checkpoint:
         self.startStage = 0
         if epoch is not None:
             ckpt = torch.load(runDir / version / f"e{epoch}.pt", map_location=device)
-            self.hparams = ckpt['hparams']
+            if override:
+                self.hparams = HParams()
+                print('Warning: overriding checkpoint hparams. Proceed at your own risk...')
+            else:
+                self.hparams = ckpt['hparams']
             self.examples = ckpt['examples']
             self.startEpoch = epoch + 1
             for stageIdx, stage in enumerate(self.hparams.stages):

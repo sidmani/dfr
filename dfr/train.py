@@ -80,7 +80,6 @@ def loop(dataloader, stage, ckpt, logger, idx):
 
     logData['discriminator_real'] = torch.sigmoid(disReal).mean().detach()
     logData['discriminator_fake'] = torch.sigmoid(disFake).mean().detach()
-    logData['discriminator_total'] = (disLossFake + disLossReal).detach()
     logData['penalty'] = penalty.detach()
     del disReal
     del disFake
