@@ -9,6 +9,7 @@ class Stage:
     batch: int
     fade: int
     discChannels: int
+    sharpness: float
 
     @property
     def imageSize(self):
@@ -26,10 +27,13 @@ class HParams:
     sineOmega: float = 1.0
     sdfWidth: int = 512
     stages: Tuple[Stage, ...] = (
-        Stage(start=0, raycast=[16], batch=32, fade=0, discChannels=384),
-        Stage(start=5000, raycast=[16, 2], batch=16, fade=2000, discChannels=384),
-        # Stage(start=50000, raycast=[16, 4], batch=16, fade=10000, discChannels=256),
-        # Stage(start=100000, raycast=[32, 4], batch=8, fade=10000, discChannels=128),
+        # rule of thumb for sharpness is 2.5 * resolution, except first step
+        # because need lower value for SDF to coalesce
+        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sharpness=10.),
+        Stage(start=2000, raycast=[16], batch=32, fade=2000, discChannels=384, sharpness=2.5 * 16),
+        Stage(start=20000, raycast=[16, 2], batch=16, fade=5000, discChannels=384, sharpness=2.5 * 32),
+        Stage(start=50000, raycast=[16, 4], batch=16, fade=5000, discChannels=256, sharpness=2.5 * 64),
+        Stage(start=100000, raycast=[32, 4], batch=8, fade=10000, discChannels=128, sharpness=2.5 * 128),
     )
 
     def __post_init__(self):

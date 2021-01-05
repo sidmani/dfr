@@ -47,7 +47,7 @@ def upsample(t, scale):
     return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
 def multiscale(axes, scales, fov, latents, sdf, dtype, threshold):
-    cameraD = 1.0 / np.sin(fov / 2.0)
+    cameraD = 1.0 / np.tan(fov / 2.0)
 
     batch = axes.shape[0]
     terminal = torch.zeros(batch, 1, 1, 1, dtype=dtype, device=axes.device)

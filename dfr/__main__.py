@@ -101,6 +101,9 @@ def main(args):
                         activations=args.debug_act)
 
     pp = pprint.PrettyPrinter(indent=2)
+    print('Flags')
+    pp.pprint(Flags.__dict__)
+    print('Hyperparameters')
     pp.pprint(ckpt.hparams.__dict__)
 
     # selects best convolution algorithm; yields ~1.5x overall speedup

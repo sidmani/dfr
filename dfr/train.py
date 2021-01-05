@@ -44,7 +44,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
     real = next(dataloader)
 
     # sample the generator for fake images
-    sampled = sample_like(real, ckpt, stage.raycast)
+    sampled = sample_like(real, ckpt, stage.raycast, stage.sharpness)
     fake = sampled['image']
     logData = {'fake': fake, 'real': real}
 
@@ -62,12 +62,12 @@ def loop(dataloader, stage, ckpt, logger, idx):
     disOpt.zero_grad(set_to_none=True)
     real.requires_grad = True
     with autocast(enabled=Flags.AMP):
-        disReal = dis(real, sample='nearest').view(-1)
+        disReal = dis(real).view(-1)
         label = torch.full((real.shape[0],), 1.0, device=disReal.device)
         disLossReal = criterion(disReal, label)
 
         label = torch.full((real.shape[0],), 0.0, device=disReal.device)
-        disFake = dis(detachedFake, sample='nearest').view(-1)
+        disFake = dis(detachedFake).view(-1)
         disLossFake = criterion(disFake, label)
 
     # note that we need to apply sigmoid, since BCEWithLogitsLoss does that internally
@@ -100,7 +100,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
         # the discriminator has been updated so we have to run the forward pass again
         # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
         label.fill_(1.)
-        output = dis(fake, sample='nearest').view(-1)
+        output = dis(fake).view(-1)
         genLoss = criterion(output, label) + hparams.eikonal * eikonalLoss
 
     # graph: genLoss -> discriminator -> generator

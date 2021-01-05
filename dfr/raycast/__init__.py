@@ -4,21 +4,21 @@ import numpy as np
 from .ray import rotateAxes, multiscale
 from ..flags import Flags
 
-def sample_like(other, ckpt, scales):
+def sample_like(other, ckpt, scales, sharpness):
     batchSize = other.shape[0]
     device = other.device
-    return sample(other.shape[0], other.device, ckpt, scales)
+    return sample(other.shape[0], other.device, ckpt, scales, sharpness)
 
-def sample(batchSize, device, ckpt, scales):
+def sample(batchSize, device, ckpt, scales, sharpness):
     phis = torch.ones(batchSize, device=device) * (np.pi / 6.0)
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
     z = torch.normal(0.0,
                      ckpt.hparams.latentStd,
                      size=(batchSize, ckpt.hparams.latentSize),
                      device=device)
-    return raycast(phis, thetas, scales, ckpt.hparams.fov, z, ckpt.gen, ckpt.gradScaler)
+    return raycast(phis, thetas, scales, ckpt.hparams.fov, z, ckpt.gen, ckpt.gradScaler, sharpness)
 
-def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, threshold=5e-3, sharpness=10.0):
+def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, sharpness, threshold=5e-3):
     batch = latents.shape[0]
     # autograd isn't needed here; no backprop to the camera position
     with torch.no_grad():
