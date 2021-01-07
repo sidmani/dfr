@@ -30,7 +30,6 @@ def train(datapath, device, steps, ckpt, logger):
 
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
         dataloader = makeDataloader(stage.batch, dataset, device)
-
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
@@ -71,7 +70,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
         disLossFake = criterion(disFake, label)
 
     # note that we need to apply sigmoid, since BCEWithLogitsLoss does that internally
-    penalty = 10 * R1(real, torch.sigmoid(disReal), gradScaler)
+    penalty = hparams.r1Factor * R1(real, torch.sigmoid(disReal), gradScaler)
 
     gradScaler.scale(disLossReal).backward(retain_graph=True)
     gradScaler.scale(disLossFake).backward()
@@ -84,8 +83,8 @@ def loop(dataloader, stage, ckpt, logger, idx):
     del disReal
     del disFake
 
-    if 1.0 - logData['discriminator_real'].item() < 1e-4 and idx > 1000:
-        raise Exception('Training failed; discriminator is perfect.')
+    # if 1.0 - logData['discriminator_real'].item() < 1e-4 and idx > 1000:
+    #     raise Exception('Training failed; discriminator is perfect.')
 
     # disable autograd on discriminator params
     for p in dis.parameters():

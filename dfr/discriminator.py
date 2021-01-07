@@ -85,10 +85,7 @@ class Discriminator(nn.Module):
         self.activation = nn.LeakyReLU(0.2)
 
         self.adapter = nn.ModuleList([])
-        self.blocks = nn.ModuleList([
-            # 4x4 -> 2x2
-            ProgressiveBlock(384, 384, self.activation),
-        ])
+        self.blocks = nn.ModuleList([ProgressiveBlock(384, 384, self.activation)])
         self.stageCount = len(hparams.stages)
 
         # 384x2x2 -> 1x1x1
@@ -130,7 +127,8 @@ class Discriminator(nn.Module):
         if self.alpha < 1.0:
             # create the half-size image by directly downsampling from the original
             oldSize = self.hparams.stages[self.stage - 1].imageSize
-            half = torch.nn.functional.interpolate(full, size=(oldSize, oldSize), mode='nearest')
+            half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode='bilinear')
+            # half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode='bilinear')
             x2 = self.adapter[self.stage - 1](half)
             x2 = self.activation(x2)
             # linear interpolation between new & old

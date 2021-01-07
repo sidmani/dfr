@@ -19,7 +19,13 @@ class ImageDataset(Dataset):
         toTensor = transforms.ToTensor()
         for obj in tqdm(objects):
             img = Image.open(obj)
-            self.dataset.append(toTensor(img))
+            tens = toTensor(img)
+            # some of the images have partially transparent portions (alpha > 0.5)
+            # but we don't support that, so make them solid
+            # solid = tens[3] > 0.5
+            # tens[3, solid] = 1.0
+
+            self.dataset.append(tens)
 
     def __len__(self):
         return self.length

@@ -65,7 +65,7 @@ class Checkpoint:
             self.hparams = HParams()
             self.examples = torch.normal(
                     mean=0.0,
-                    std=self.hparams.latentStd,
+                    std=1.0,
                     size=(3, self.hparams.latentSize),
                     device=device)
             self.startEpoch = 0

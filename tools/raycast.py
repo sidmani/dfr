@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from dfr.hparams import HParams
 from dfr.ckpt import Checkpoint
 from dfr.raycast import raycast
-from dfr.sdfNetwork import SDFNetwork
 
 count = 0
 

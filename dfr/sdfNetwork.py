@@ -1,51 +1,15 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
-class SineLayer(nn.Module):
-    # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of omega_0.
-
-    # If is_first=True, omega_0 is a frequency factor which simply multiplies the activations before the
-    # nonlinearity. Different signals may require different omega_0 in the first layer - this is a
-    # hyperparameter.
-
-    # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of
-    # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
-
-    def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega_0=30.0):
-        super().__init__()
-        self.omega_0 = omega_0
-        self.is_first = is_first
-
-        self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-
-        self.init_weights()
-
-    def init_weights(self):
-        with torch.no_grad():
-            if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features,
-                                             1 / self.in_features)
-            else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
-                                             np.sqrt(6 / self.in_features) / self.omega_0)
-
-    def forward(self, input, gamma, beta):
-        return torch.sin(self.omega_0 * (self.linear(input) * gamma + beta))
-
-    def forward_debug(self, input, gamma, beta):
-        z = self.omega_0 * (gamma * self.linear(input) + beta)
-        return z, torch.sin(z)
+from .siren import SineLayer, siren_linear_init
 
 # The SDF network is a SIREN, with FiLM conditioning, as in pi-GAN.
 # - the FiLM network is run multiple times on the same latents; do forward pass before mask
 # - omega_0 is set to 1 everywhere (SIREN uses 30), but the SDF doesn't coalesce with higher values.
 # - is_first=True is not set on the first layer.
-# - the width of the FiLM network might be too large
 # - the variance of the latent vector is high (or is it low?)
 # - the branches are deeper than in related architectures (like NeRF)
+
 class SDFNetwork(nn.Module):
     def __init__(self, hparams):
         super().__init__()
@@ -64,25 +28,28 @@ class SDFNetwork(nn.Module):
         )
 
         self.layers = nn.ModuleList([
-            SineLayer(3, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(3, width, omega_0=hparams.omega0_first, is_first=True),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
         ])
 
         self.sdfLayers = nn.ModuleList([
-            SineLayer(width, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
             nn.Linear(width, 1),
         ])
 
         self.txLayers = nn.ModuleList([
-            SineLayer(width, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
-            SineLayer(width, width, omega_0=hparams.sineOmega),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega_0=hparams.omega0_hidden),
             nn.Linear(width, 3),
         ])
+
+        siren_linear_init(self.sdfLayers[3], hparams.omega0_hidden)
+        siren_linear_init(self.txLayers[3], hparams.omega0_hidden)
 
     def forward(self, pts, allLatents, mask, geomOnly=False):
         gamma, beta = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
@@ -106,6 +73,6 @@ class SDFNetwork(nn.Module):
         del r
         for i in range(3):
             tx = self.txLayers[i](tx, gamma, beta)
-        tx = torch.sigmoid(self.txLayers[3](tx))
+        tx = (torch.sin(self.txLayers[3](tx)) + 1) / 2
 
         return sdf, tx
