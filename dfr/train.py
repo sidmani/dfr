@@ -5,7 +5,6 @@ from .raycast import sample_like
 from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import R1
-from tools.grad_graph import register_hooks
 from .flags import Flags
 
 def train(datapath, device, steps, ckpt, logger):

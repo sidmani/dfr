@@ -3,7 +3,6 @@ from torch.cuda.amp import autocast
 import numpy as np
 from .ray import rotateAxes, multiscale
 from ..flags import Flags
-from ..util import normalizedZ
 
 def sample_like(other, ckpt, scales, sharpness):
     batchSize = other.shape[0]
@@ -17,7 +16,7 @@ def sample(batchSize, device, ckpt, scales, sharpness):
     phis = torch.rand(batchSize, device=device) * deg10 + deg20
     # azimuth is uniform in [0, 2pi]
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
-    z = normalizedZ((batchSize, ckpt.hparams.latentSize), device)
+    z = torch.normal(0.0, ckpt.hparams.latentStd, (batchSize, ckpt.hparams.latentSize), device=device)
     return raycast(phis, thetas, scales, ckpt.hparams.fov, z, ckpt.gen, ckpt.gradScaler, sharpness)
 
 def raycast(phis, thetas, scales, fov, latents, sdf, gradScaler, sharpness, threshold=5e-3):

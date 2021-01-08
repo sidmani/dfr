@@ -12,8 +12,7 @@ class SineLayer(nn.Module):
     # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of
     # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
 
-    def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega_0=30.0):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30.0):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first

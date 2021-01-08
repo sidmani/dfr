@@ -27,7 +27,6 @@ class MockSDFCube:
         if geomOnly:
             return sdf
         tx = torch.clamp((x / 2.0) + torch.tensor([0.5, 0.5, 0.5], device=x.device, dtype=x.dtype).view(1, 3), 0.0, 1.0)
-        # tx = latents[:, :3]
         return sdf, tx
 
 def main(args):
@@ -39,7 +38,7 @@ def main(args):
                           epoch=args.epoch,
                           device=device)
         hp = ckpt.hparams
-        sdf = ckpt.gen.sdf
+        sdf = ckpt.gen
         latents = torch.normal(mean=0.0, std=hp.latentStd, size=(2, hp.latentSize), device=device, dtype=dtype)
     else:
         hp = HParams()
@@ -54,8 +53,8 @@ def main(args):
 
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
-    scaler = GradScaler(init_scale=32768.)
-    ret = raycast(phis, thetas, args.resolution, hp.fov, latents, sdf, scaler)
+    gradScaler = GradScaler(enabled=False)
+    ret = raycast(phis, thetas, args.resolution, hp.fov, latents, sdf, gradScaler, args.sharpness)
     out = ret['image']
     for i in range(args.pool):
         out = torch.nn.functional.avg_pool2d(out, 2)
@@ -96,6 +95,11 @@ if __name__ == "__main__":
             '--pool',
             type=int,
             default=0,
+    )
+    parser.add_argument(
+            '--sharpness',
+            type=float,
+            default=10.0,
     )
     args = parser.parse_args()
     main(args)
