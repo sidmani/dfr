@@ -33,17 +33,20 @@ def train(datapath, device, steps, ckpt, logger):
             # fade in the new discriminator layer
             if stage.fade > 0:
                 ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
-            loop(dataloader, stage, ckpt, logger, idx)
+            prevStage = stages[i - 1] if i > 0 else None
+            loop(dataloader, stage, prevStage, ckpt, logger, idx)
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
-def loop(dataloader, stage, ckpt, logger, idx):
+def loop(dataloader, stage, prevStage, ckpt, logger, idx):
     # get the next batch of real images
     real = next(dataloader)
 
     # sample the generator for fake images
-    sampled = sample_like(real, ckpt, stage.raycast, stage.sharpness)
+    halfSharpness = prevStage.sharpness if prevStage is not None else None
+    sampled = sample_like(real, ckpt, stage.raycast, stage.sharpness, halfSharpness)
     fake = sampled['image']
+    fakeHalf = sampled['half'] if halfSharpness is not None else None
     logData = {'fake': fake, 'real': real}
 
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
@@ -55,6 +58,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
     # detach() sets requires_grad=False, so reset it to True
     # need to clone so that in-place ops in CNN are legal
     detachedFake = fake.detach().clone().requires_grad_()
+    detachedFakeHalf = fakeHalf.detach().clone().requires_grad_() if fakeHalf is not None else None
     criterion = nn.BCEWithLogitsLoss()
 
     disOpt.zero_grad(set_to_none=True)
@@ -65,7 +69,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
         disLossReal = criterion(disReal, label)
 
         label = torch.full((real.shape[0],), 0.0, device=disReal.device)
-        disFake = dis(detachedFake).view(-1)
+        disFake = dis(detachedFake, detachedFakeHalf).view(-1)
         disLossFake = criterion(disFake, label)
 
     # note that we need to apply sigmoid, since BCEWithLogitsLoss does that internally
@@ -98,7 +102,7 @@ def loop(dataloader, stage, ckpt, logger, idx):
         # the discriminator has been updated so we have to run the forward pass again
         # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
         label.fill_(1.)
-        output = dis(fake).view(-1)
+        output = dis(fake, fakeHalf).view(-1)
         genLoss = criterion(output, label) + hparams.eikonal * eikonalLoss
 
     # graph: genLoss -> discriminator -> generator

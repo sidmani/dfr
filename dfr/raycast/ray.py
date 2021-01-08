@@ -2,51 +2,15 @@ import torch
 from torch.cuda.amp import autocast
 import numpy as np
 from ..flags import Flags
-
-def rotateAxes(phis, thetas):
-    cos_theta = torch.cos(thetas).unsqueeze(1)
-    sin_theta = torch.sin(thetas).unsqueeze(1)
-    cos_phi = torch.cos(phis).unsqueeze(1)
-    sin_phi = torch.sin(phis).unsqueeze(1)
-
-    # composition of 2 transforms: rotate theta first, then phi
-    # TODO: reverse rotation order
-    return torch.cat([
-        torch.cat([cos_theta, -sin_theta * sin_phi, cos_phi * sin_theta], dim=1).unsqueeze(2),
-        torch.cat([torch.zeros_like(cos_phi), cos_phi, sin_phi], dim=1).unsqueeze(2),
-        torch.cat([-sin_theta, -sin_phi * cos_theta, cos_phi * cos_theta], dim=1).unsqueeze(2),
-    ], dim=2)
-
-def makeRays(axes, px, D, fov, dtype):
-    edgeLength = (D - 1) * np.tan(fov / 2)
-
-    # offsets the edges so a 2n x 2n grid is evenly spaced within an n x n grid
-    # for example, raycasting at 32x32 avg pooled to 16x16 should look very similar to raycasting at 16x16
-    edge = edgeLength * (1. - 1. / px)
-
-    xSpace = torch.linspace(-edge, edge, steps=px, dtype=dtype, device=axes.device).repeat(px, 1)[None, :, :, None]
-    ySpace = -xSpace.transpose(1, 2)
-    x = axes[:, 0][:, None, None, :]
-    y = axes[:, 1][:, None, None, :]
-    z = axes[:, 2][:, None, None, :]
-
-    plane = xSpace * x + ySpace * y + z
-    rays = plane - z * D
-    norm = rays.reshape(-1, 3).norm(dim=1).view(-1, px, px, 1)
-    return rays / norm
-
-def computePlanes(rays, axes, cameraD, size):
-    z = axes[:, 2][:, None, None, :]
-    center = cameraD * (-z.unsqueeze(3) @ rays.unsqueeze(4)).view(-1, size, size)
-    delta = torch.sqrt(torch.clamp(center ** 2 - cameraD ** 2 + 1, min=0.0))
-    return center - delta, center + delta, delta > 1e-10
+from .geometry import rayGrid, computePlanes
 
 # nearest-neighbor upsampling
 # can probably do a better job with bilinear interpolation
 def upsample(t, scale):
     return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
-def multiscale(axes, scales, fov, latents, sdf, dtype, threshold):
+# iteratively raycast at increasing resolution
+def multiscale(axes, scales, latents, sdf, dtype, threshold, fov=25 * (np.pi / 180)):
     cameraD = 1.0 / np.tan(fov / 2.0)
 
     batch = axes.shape[0]
@@ -75,7 +39,7 @@ def multiscale(axes, scales, fov, latents, sdf, dtype, threshold):
         first = False
         size *= scale
 
-        rays = makeRays(axes, size, cameraD, fov, dtype=dtype)
+        rays = rayGrid(axes, size, cameraD, fov, dtype=dtype)
         near, far, sphereMask = computePlanes(rays, axes, cameraD, size)
         if smallestMask is None:
             smallestMask = sphereMask
@@ -107,6 +71,7 @@ def multiscale(axes, scales, fov, latents, sdf, dtype, threshold):
     sphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
     return points, expandedLatents, sphereMask
 
+# batched sphere tracing with culling of terminated rays
 def sphereTrace(rays, origin, planes, latents, sdf, threshold, dtype, steps=16):
     minValues = 5.0 * torch.ones(rays.shape[0], device=rays.device, dtype=dtype)
     mask = torch.ones_like(minValues, dtype=torch.bool)

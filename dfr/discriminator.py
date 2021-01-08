@@ -69,12 +69,10 @@ class Discriminator(nn.Module):
     def setAlpha(self, alpha):
         self.alpha = alpha
 
-    def forward(self, img, mode='bilinear'):
+    def forward(self, img, half=None, mode='bilinear'):
         size = self.hparams.stages[self.stage].imageSize
-        if img.shape[2] != size:
-            full = torch.nn.functional.interpolate(img, size=(size, size), mode=mode)
-        else:
-            full = img
+        # interpolate() does nothing if the sizes match
+        full = torch.nn.functional.interpolate(img, size=(size, size), mode=mode)
 
         # the block corresponding to the current stage
         x = self.adapter[self.stage](full)
@@ -83,9 +81,11 @@ class Discriminator(nn.Module):
 
         # the faded value from the previous stage
         if self.alpha < 1.0:
-            # create the half-size image by directly downsampling from the original
-            oldSize = self.hparams.stages[self.stage - 1].imageSize
-            half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode=mode)
+            # create half-sized if not provided
+            if half is None:
+                # create the half-size image by directly downsampling from the original
+                oldSize = self.hparams.stages[self.stage - 1].imageSize
+                half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode=mode)
             x2 = self.adapter[self.stage - 1](half)
             x2 = self.activation(x2)
             # linear interpolation between new & old

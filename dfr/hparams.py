@@ -21,7 +21,6 @@ class HParams:
     betas: Tuple[int, int] = (0.0, 0.9)
     latentSize: int = 256
     latentStd: float = 2.5
-    fov: float = 25 * (np.pi / 180)
     eikonal: float = 1.0
     r1Factor: float = 10.0
     omega0_first: float = 5.
