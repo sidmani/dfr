@@ -52,12 +52,13 @@ def main(args):
 
     phis = torch.tensor([np.pi/4], device=device, dtype=dtype)
     thetas = torch.tensor([np.pi/4], device=device, dtype=dtype)
-    scaler = GradScaler(init_scale=32768.)
+    scaler = GradScaler(enabled=False)
 
-    ret_1 = raycast(phis, thetas, [32], hp.fov, latents, sdf, scaler)['image'][0]
-    ret_2 = raycast(phis, thetas, [32, 2], hp.fov, latents, sdf, scaler)['image'][0]
+    ret_1 = raycast((phis, thetas), [32], latents, sdf, scaler, 60.)['image'][0]
+    ret_2 = raycast((phis, thetas), [32, 2], latents, sdf, scaler, 120., 60.)['half'][0]
     # downsampled = torch.nn.functional.avg_pool2d(ret_2, 2)
-    downsampled = torch.nn.functional.interpolate(ret_2.unsqueeze(0), scale_factor=0.5).squeeze(0)
+    # downsampled = torch.nn.functional.interpolate(ret_2.unsqueeze(0), scale_factor=0.5).squeeze(0)
+    downsampled = ret_2
 
     # bilinear = transforms.functional.resize(ret_2, [32, 32])
     # bilinear = torch.nn.functional.interpolate(ret_2.unsqueeze(0), size=[32, 32], mode='bilinear').squeeze(0)

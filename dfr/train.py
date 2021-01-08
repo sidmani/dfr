@@ -23,16 +23,13 @@ def train(datapath, device, steps, ckpt, logger):
         else:
             endEpoch = steps
 
-        # stop execution if necessary
-        if endEpoch <= startEpoch:
-            break
-
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
         dataloader = makeDataloader(stage.batch, dataset, device)
         for idx in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
                 ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
+                # ckpt.dis.setAlpha(0.)
             prevStage = stages[i - 1] if i > 0 else None
             loop(dataloader, stage, prevStage, ckpt, logger, idx)
 

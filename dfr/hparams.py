@@ -30,10 +30,10 @@ class HParams:
         # rule of thumb for sharpness is 2.5 * resolution, except first step
         # because need lower value for SDF to coalesce
         Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sharpness=10.),
-        Stage(start=3000, raycast=[16], batch=32, fade=2000, discChannels=384, sharpness=60.),
-        Stage(start=5000, raycast=[16, 2], batch=16, fade=2000, discChannels=384, sharpness=100.),
-        Stage(start=35000, raycast=[16, 4], batch=16, fade=5000, discChannels=256, sharpness=160.),
-        Stage(start=60000, raycast=[32, 4], batch=8, fade=5000, discChannels=128, sharpness=320.),
+        Stage(start=3100, raycast=[16], batch=32, fade=2000, discChannels=384, sharpness=40.),
+        Stage(start=6000, raycast=[16, 2], batch=16, fade=4000, discChannels=384, sharpness=80.),
+        Stage(start=35000, raycast=[16, 4], batch=16, fade=8000, discChannels=256, sharpness=160.),
+        Stage(start=60000, raycast=[32, 4], batch=8, fade=8000, discChannels=128, sharpness=320.),
     )
 
     def __post_init__(self):

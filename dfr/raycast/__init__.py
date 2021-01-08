@@ -6,6 +6,7 @@ from .geometry import rotateAxes
 from .ray import multiscale
 from .lighting import illuminate, fuzz
 from ..flags import Flags
+from ..image import GaussianBlur
 
 def sample_like(other, ckpt, scales, sharpness, halfSharpness=None):
     batchSize = other.shape[0]
@@ -73,8 +74,12 @@ def raycast(angles, scales, latents, sdf, gradScaler, sharpness, halfSharpness=N
         ret['image'] = composite(valueMap, shading, threshold, sharpness)
 
         if halfSharpness is not None:
-            valueMapHalf = torch.nn.functional.interpolate(valueMap, scale_factor=0.5, mode='bilinear')
-            shadingHalf = torch.nn.functional.interpolate(shading, scale_factor=0.5, mode='bilinear')
+            # blur = GaussianBlur(5, 0.45, 1).to(axes.device)
+            # valueMap = blur(valueMap)
+            valueMapHalf = torch.nn.functional.interpolate(valueMap, scale_factor=0.5, mode='bicubic', align_corners=True).clamp(0.0, 1.0)
+            # shading = blur(shading)
+            # print(shading.shape)
+            shadingHalf = torch.nn.functional.interpolate(shading, scale_factor=0.5, mode='bilinear', align_corners=True)
             ret['half'] = composite(valueMapHalf, shadingHalf, threshold, halfSharpness)
 
         return ret

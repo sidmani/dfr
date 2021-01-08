@@ -49,6 +49,7 @@ class Checkpoint:
         # if the version exists, load it
         self.startStage = 0
         if epoch is not None:
+            print(f'Loading epoch {epoch}.')
             ckpt = torch.load(runDir / version / f"e{epoch}.pt", map_location=device)
             if override:
                 self.hparams = HParams()

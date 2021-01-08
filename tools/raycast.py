@@ -54,10 +54,8 @@ def main(args):
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
-    ret = raycast(phis, thetas, args.resolution, hp.fov, latents, sdf, gradScaler, args.sharpness)
+    ret = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sharpness, halfSharpness=60.)
     out = ret['image']
-    for i in range(args.pool):
-        out = torch.nn.functional.avg_pool2d(out, 2)
 
     print(f"{count} SDF queries.")
     obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
@@ -65,11 +63,22 @@ def main(args):
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 
-    fig, axs = plt.subplots(2, 2)
+    half = ret['half']
+    obj1_half = half[0].permute(1, 2, 0).cpu().detach().numpy()
+    obj2_half = half[1].permute(1, 2, 0).cpu().detach().numpy()
+    sil1_half = obj1_half[:, :, 3]
+    sil2_half = obj2_half[:, :, 3]
+
+    fig, axs = plt.subplots(4, 2)
     axs[0, 0].imshow(obj1)
     axs[0, 1].imshow(obj2)
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
+    axs[2, 0].imshow(obj1_half)
+    axs[2, 1].imshow(obj2_half)
+    axs[3, 0].imshow(obj1_half)
+    axs[3, 1].imshow(obj2_half)
+
     plt.show()
 
 if __name__ == "__main__":

@@ -1,4 +1,9 @@
 # from https://github.com/t-vi/pytorch-tvmisc/blob/master/visualize/bad_grad_viz.ipynb
+# Example usage:
+# get_dot = register_hooks(z)
+# z.backward()
+# dot = get_dot()
+# dot.save('tmp.dot')
 
 from graphviz import Digraph
 import torch
@@ -62,13 +67,3 @@ def register_hooks(var):
         return dot
 
     return make_dot
-
-# x = torch.randn(10, 10, requires_grad=True)
-# y = torch.randn(10, 10, requires_grad=True)
-
-# z = x / (y * 0)
-# z = z.sum() * 2
-# get_dot = register_hooks(z)
-# z.backward()
-# dot = get_dot()
-#dot.save('tmp.dot') # to get .dot

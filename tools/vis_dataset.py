@@ -1,18 +1,29 @@
 import torch
+import numpy as np
 from dfr.dataset import ImageDataset, makeDataloader
 from pathlib import Path
 import matplotlib.pyplot as plt
 from torchvision import transforms
 
-dataset = ImageDataset(Path('../cars_128'), sizes=[128, 64, 32])
-dataset.requestSizes([128, 64, 32])
-# img = dataset[444]
-dataloader = makeDataloader(1, dataset, device=torch.device('cpu'))
-batch = next(dataloader)
+dataset = ImageDataset(Path('../cars_128'))
+idx = np.random.randint(0, len(dataset))
+print(idx)
+item = dataset[idx]
+img_128 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(128, 128), mode='bilinear').squeeze(0)
+img_64 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(64, 64), mode='bilinear').squeeze(0)
+img_32 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(32, 32), mode='bilinear').squeeze(0)
+img_128 = img_128.permute(1, 2, 0).detach().numpy()
+img_64 = img_64.permute(1, 2, 0).detach().numpy()
+img_32 = img_32.permute(1, 2, 0).detach().numpy()
 
-fig, axs = plt.subplots(3)
-axs[0].imshow(batch[0][0].permute(1, 2, 0).detach().numpy())
-axs[1].imshow(batch[1][0].permute(1, 2, 0).detach().numpy())
-axs[2].imshow(batch[2][0].permute(1, 2, 0).detach().numpy())
+
+fig, axs = plt.subplots(3, 2)
+axs[0, 0].imshow(img_128)
+axs[1, 0].imshow(img_64)
+axs[2, 0].imshow(img_32)
+
+axs[0, 1].imshow(img_128[:, :, 3])
+axs[1, 1].imshow(img_64[:, :, 3])
+axs[2, 1].imshow(img_32[:, :, 3])
 
 plt.show()
