@@ -76,8 +76,8 @@ def main(args):
     axs[1, 1].imshow(sil2)
     axs[2, 0].imshow(obj1_half)
     axs[2, 1].imshow(obj2_half)
-    axs[3, 0].imshow(obj1_half)
-    axs[3, 1].imshow(obj2_half)
+    axs[3, 0].imshow(sil1_half)
+    axs[3, 1].imshow(sil2_half)
 
     plt.show()
 

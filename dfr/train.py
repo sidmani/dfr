@@ -44,7 +44,8 @@ def loop(dataloader, stage, prevStage, ckpt, logger, idx):
     sampled = sample_like(real, ckpt, stage.raycast, stage.sharpness, halfSharpness)
     fake = sampled['image']
     fakeHalf = sampled['half'] if halfSharpness is not None else None
-    logData = {'fake': fake, 'real': real}
+    ds_real = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
+    logData = {'fake': fake, 'real': ds_real}
 
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
@@ -77,13 +78,18 @@ def loop(dataloader, stage, prevStage, ckpt, logger, idx):
     gradScaler.scale(penalty).backward()
     gradScaler.step(disOpt)
 
-    logData['discriminator_real'] = torch.sigmoid(disReal).mean().detach()
-    logData['discriminator_fake'] = torch.sigmoid(disFake).mean().detach()
+    with torch.no_grad():
+        real_score = torch.sigmoid(disReal).mean().detach()
+        fake_score = torch.sigmoid(disFake).mean().detach()
+        logData['discriminator_real'] = real_score
+        logData['discriminator_fake'] = fake_score
+        logData['discriminator_total'] = fake_score - real_score
+
     logData['penalty'] = penalty.detach()
     del disReal
     del disFake
 
-    # if 1.0 - logData['discriminator_real'].item() < 1e-4 and idx > 1000:
+    # if 1.0 - logData['discriminator_real'].item() < 1e-4 and idx > 2000:
     #     raise Exception('Training failed; discriminator is perfect.')
 
     # disable autograd on discriminator params

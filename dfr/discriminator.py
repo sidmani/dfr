@@ -21,10 +21,8 @@ class ProgressiveBlock(nn.Module):
         self.layers = nn.Sequential(
             # pi-GAN uses in->out, out->out, but pro-gan uses in->in, in->out
             nn.Conv2d(inChannels, inChannels, kernel_size=3, padding=1),
-            # EqualConv2d(inChannels, inChannels, kernel_size=3, padding=1),
             activation,
             nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
-            # EqualConv2d(inChannels, outChannels, kernel_size=3, padding=1),
             activation,
             # aliasing may be a mild issue with the downsampled generator image
             # https://richzhang.github.io/antialiased-cnns/

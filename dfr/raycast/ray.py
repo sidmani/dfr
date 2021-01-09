@@ -20,10 +20,8 @@ def multiscale(axes, scales, latents, sdf, dtype, threshold, fov=25 * (np.pi / 1
     latents = latents[:, None, None, :]
     size = 1
 
-    smallestMask = None
-    first = True
-    for scale in scales:
-        if not first:
+    for idx, scale in enumerate(scales):
+        if idx > 0:
             # TODO: move this into raymarch()
             # a geometric bound for whether a super-ray could have subrays that intersected the object
             k = distances * 2 * np.tan(fov / (2. * size))
@@ -36,12 +34,12 @@ def multiscale(axes, scales, latents, sdf, dtype, threshold, fov=25 * (np.pi / 1
             rayMask[rayMask] = minValues <= bound
             del bound
             del minValues
-        first = False
+
         size *= scale
 
         rays = rayGrid(axes, size, cameraD, fov, dtype=dtype)
         near, far, sphereMask = computePlanes(rays, axes, cameraD, size)
-        if smallestMask is None:
+        if idx == 0:
             smallestMask = sphereMask
 
         near = near.expand(batch, -1, -1)

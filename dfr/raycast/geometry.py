@@ -4,24 +4,25 @@ import numpy as np
 # create rotation matrices from camera angles (phi, theta)
 def rotateAxes(angles):
     phis, thetas = angles
-    cos_theta = torch.cos(thetas).unsqueeze(1)
-    sin_theta = torch.sin(thetas).unsqueeze(1)
-    cos_phi = torch.cos(phis).unsqueeze(1)
-    sin_phi = torch.sin(phis).unsqueeze(1)
+    cos_theta = torch.cos(thetas)
+    sin_theta = torch.sin(thetas)
+    cos_phi = torch.cos(phis)
+    sin_phi = torch.sin(phis)
 
     # composition of 2 transforms: rotate theta first, then phi
-    return torch.cat([
-        torch.cat([cos_theta, -sin_theta * sin_phi, cos_phi * sin_theta], dim=1).unsqueeze(2),
-        torch.cat([torch.zeros_like(cos_phi), cos_phi, sin_phi], dim=1).unsqueeze(2),
-        torch.cat([-sin_theta, -sin_phi * cos_theta, cos_phi * cos_theta], dim=1).unsqueeze(2),
+    return torch.stack([
+        torch.stack([cos_theta, -sin_theta * sin_phi, cos_phi * sin_theta], dim=1),
+        torch.stack([torch.zeros_like(cos_phi), cos_phi, sin_phi], dim=1),
+        torch.stack([-sin_theta, -sin_phi * cos_theta, cos_phi * cos_theta], dim=1),
     ], dim=2)
 
 # construct a grid of rays viewing the origin from (0, 0, 1)
 def rayGrid(axes, px, D, fov, dtype):
     edge = (D - 1) * np.tan(fov / 2)
 
-    # it's tempting to align the centers of the edge pixels, i.e. edge * (1. - 1. / px)
-    # but don't do it! the scale of the image changes, which the discriminator can't handle
+    # it's tempting to align the centers of the edge pixels, i.e.
+    # edge = (D - 1) * np.tan(fov / 2) * (1 - 1. / px)
+    # but don't do it! the scale of the image changes across resolutions, which the discriminator can't handle
 
     xSpace = torch.linspace(-edge, edge, steps=px, dtype=dtype, device=axes.device).repeat(px, 1)[None, :, :, None]
     ySpace = -xSpace.transpose(1, 2)
@@ -38,5 +39,6 @@ def rayGrid(axes, px, D, fov, dtype):
 def computePlanes(rays, axes, cameraD, size):
     z = axes[:, 2][:, None, None, :]
     center = cameraD * (-z.unsqueeze(3) @ rays.unsqueeze(4)).view(-1, size, size)
-    delta = torch.sqrt(torch.clamp(center ** 2 - cameraD ** 2 + 1, min=0.0))
-    return center - delta, center + delta, delta > 1e-10
+    # clamp to min=0, because rays that don't intersect the sphere have complex roots
+    delta = (center ** 2 - cameraD ** 2 + 1).clamp(min=0.0).sqrt()
+    return center - delta, center + delta, delta > 1e-5
