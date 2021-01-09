@@ -3,18 +3,21 @@ from torch.cuda.amp import autocast
 import numpy as np
 from ..flags import Flags
 from .geometry import rayGrid, computePlanes
+from collections import namedtuple
+
+SampleData = namedtuple('SampleData', ['points', 'latents', 'mask'])
 
 # nearest-neighbor upsampling
-# can probably do a better job with bilinear interpolation
+# TODO: can probably do a better job with bilinear interpolation
 def upsample(t, scale):
     return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
 # iteratively raycast at increasing resolution
-def multiscale(axes, scales, latents, sdf, dtype, threshold, fov=25 * (np.pi / 180)):
+def multiscale(axes, scales, latents, sdf, threshold, half=False, fov=25 * (np.pi / 180)):
     cameraD = 1.0 / np.tan(fov / 2.0)
 
     batch = axes.shape[0]
-    terminal = torch.zeros(batch, 1, 1, 1, dtype=dtype, device=axes.device)
+    terminal = torch.zeros(batch, 1, 1, 1, device=axes.device)
     rayMask = torch.ones_like(terminal, dtype=torch.bool).squeeze(3)
     origin = cameraD * axes[:, 2][:, None, None, :]
     latents = latents[:, None, None, :]
@@ -28,16 +31,12 @@ def multiscale(axes, scales, latents, sdf, dtype, threshold, fov=25 * (np.pi / 1
             # this is suspicious because it uses a step size which is not actually used by sphere tracing
             # also the 0.5 at the end is empirical
             bound = torch.sqrt(2. * k ** 2. + (1.0 / 16.0) ** 2) * 0.5
-            del k
 
             # subdivide the rays that pass close to the object
             rayMask[rayMask] = minValues <= bound
-            del bound
-            del minValues
 
         size *= scale
-
-        rays = rayGrid(axes, size, cameraD, fov, dtype=dtype)
+        rays = rayGrid(axes, size, cameraD, fov)
         near, far, sphereMask = computePlanes(rays, axes, cameraD, size)
         if idx == 0:
             smallestMask = sphereMask
@@ -58,20 +57,31 @@ def multiscale(axes, scales, latents, sdf, dtype, threshold, fov=25 * (np.pi / 1
                                         planes,
                                         expandedLatents[rayMask],
                                         sdf,
-                                        threshold=threshold,
-                                        dtype=dtype)
+                                        threshold=threshold)
 
         terminal[rayMask] = distances.unsqueeze(1)
 
-    points = origin + terminal * rays
+        if half and idx == len(scales) - 2:
+            assert scales[-1] == 2
+            halfSphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
+            halfPoints = (origin + terminal * rays)[halfSphereMask]
+            halfPoints.requires_grad = True
+            halfData = SampleData(halfPoints, expandedLatents, halfSphereMask)
+
+    if not half:
+        halfData = None
 
     # use the lowest-resolution mask, because the high res mask includes unsampled rays
     sphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
-    return points, expandedLatents, sphereMask
+    points = (origin + terminal * rays)[sphereMask]
+    points.requires_grad = True
+    fullData = SampleData(points, expandedLatents, sphereMask)
+    return fullData, halfData
+
 
 # batched sphere tracing with culling of terminated rays
-def sphereTrace(rays, origin, planes, latents, sdf, threshold, dtype, steps=16):
-    minValues = 5.0 * torch.ones(rays.shape[0], device=rays.device, dtype=dtype)
+def sphereTrace(rays, origin, planes, latents, sdf, threshold, steps=16):
+    minValues = 5.0 * torch.ones(rays.shape[0], device=rays.device)
     mask = torch.ones_like(minValues, dtype=torch.bool)
     distance = planes[0].clone() + 2.0 / steps
     minDistances = distance.clone()
@@ -88,7 +98,7 @@ def sphereTrace(rays, origin, planes, latents, sdf, threshold, dtype, steps=16):
 
         # evaluate the targets
         with autocast(enabled=Flags.AMP):
-            values = sdf(targets, latents, mask, geomOnly=True).squeeze(1).type(dtype)
+            values = sdf(targets, latents, mask, geomOnly=True).squeeze(1).type(torch.float)
 
         del targets
 

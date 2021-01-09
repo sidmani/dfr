@@ -42,8 +42,8 @@ def loop(dataloader, stage, prevStage, ckpt, logger, idx):
     # sample the generator for fake images
     halfSharpness = prevStage.sharpness if prevStage is not None else None
     sampled = sample_like(real, ckpt, stage.raycast, stage.sharpness, halfSharpness)
-    fake = sampled['image']
-    fakeHalf = sampled['half'] if halfSharpness is not None else None
+    fake = sampled['full']
+    fakeHalf = sampled['half'] if prevStage is not None else None
     ds_real = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
     logData = {'fake': fake, 'real': ds_real}
 
@@ -56,7 +56,7 @@ def loop(dataloader, stage, prevStage, ckpt, logger, idx):
     # detach() sets requires_grad=False, so reset it to True
     # need to clone so that in-place ops in CNN are legal
     detachedFake = fake.detach().clone().requires_grad_()
-    detachedFakeHalf = fakeHalf.detach().clone().requires_grad_() if fakeHalf is not None else None
+    detachedFakeHalf = fakeHalf.detach().clone().requires_grad_() if prevStage is not None else None
     criterion = nn.BCEWithLogitsLoss()
 
     disOpt.zero_grad(set_to_none=True)
