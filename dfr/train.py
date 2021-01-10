@@ -29,26 +29,40 @@ def train(datapath, device, steps, ckpt, logger):
             # fade in the new discriminator layer
             if stage.fade > 0:
                 ckpt.dis.setAlpha(min(1.0, float(idx - stage.start) / float(stage.fade)))
-                # ckpt.dis.setAlpha(0.)
-            prevStage = stages[i - 1] if i > 0 else None
-            loop(dataloader, stage, prevStage, ckpt, logger, idx)
+                # ckpt.dis.setAlpha(0)
+            loop(dataloader, stages, i, ckpt, logger, idx)
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
-def loop(dataloader, stage, prevStage, ckpt, logger, idx):
+def loop(dataloader, stages, stageIdx, ckpt, logger, idx):
+    stage = stages[stageIdx]
+
     # get the next batch of real images
     real = next(dataloader)
-
-    # sample the generator for fake images
-    halfSharpness = prevStage.sharpness if prevStage is not None else None
-    sampled = sample_like(real, ckpt, stage.raycast, stage.sharpness, halfSharpness)
-    fake = sampled['full']
-    fakeHalf = sampled['half'] if prevStage is not None else None
-    ds_real = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
-    logData = {'fake': fake, 'real': ds_real}
-
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
+
+    # fade sharpness during transition
+    # TODO: set halfSharpness to none when not fading
+    if stageIdx < len(stages) - 1:
+        nextStage = stages[stageIdx + 1]
+        gamma = min(max(0.,  1. - (nextStage.start - idx) / hparams.sharpnessFadeIn), 1.)
+        fullSharpness = stage.sharpness * (1 - gamma) + nextStage.sharpness * gamma
+    else:
+        gamma = 0.
+        fullSharpness = stage.sharpness
+
+    if stageIdx > 0:
+        halfSharpness = fullSharpness
+    else:
+        halfSharpness = None
+
+    # sample the generator for fake images
+    sampled = sample_like(real, ckpt, stage.raycast, fullSharpness, halfSharpness)
+    fake = sampled['full']
+    fakeHalf = sampled['half'] if stageIdx > 0 else None
+    ds_real = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
+    logData = {'fake': fake, 'real': ds_real, 'full_sharpness':fullSharpness, 'gamma': gamma}
 
     ### discriminator update ###
     # the generator's not gonna be updated, so detach it from the grad graph
@@ -56,7 +70,7 @@ def loop(dataloader, stage, prevStage, ckpt, logger, idx):
     # detach() sets requires_grad=False, so reset it to True
     # need to clone so that in-place ops in CNN are legal
     detachedFake = fake.detach().clone().requires_grad_()
-    detachedFakeHalf = fakeHalf.detach().clone().requires_grad_() if prevStage is not None else None
+    detachedFakeHalf = fakeHalf.detach().clone().requires_grad_() if stageIdx > 0 else None
     criterion = nn.BCEWithLogitsLoss()
 
     disOpt.zero_grad(set_to_none=True)
