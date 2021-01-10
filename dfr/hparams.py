@@ -10,6 +10,7 @@ class Stage:
     fade: int
     discChannels: int
     sharpness: float
+    sharpnessFadeIn: int
 
     @property
     def imageSize(self):
@@ -26,13 +27,13 @@ class HParams:
     omega0_first: float = 5.
     omega0_hidden: float = 5.
     sdfWidth: int = 256
-    sharpnessFadeIn: int = 500
+    sharpnessFadeInterval: int = 1000
     stages: Tuple[Stage, ...] = (
         # rule of thumb for sharpness is 2.5 * resolution, except first step
         # because need lower value for SDF to coalesce
-        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sharpness=10.),
-        Stage(start=2500, raycast=[8, 2], batch=32, fade=2500, discChannels=384, sharpness=40.),
-        Stage(start=6000, raycast=[8, 2, 2], batch=16, fade=3000, discChannels=384, sharpness=80.),
+        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sharpness=10., sharpnessFadeIn=4000),
+        Stage(start=5000, raycast=[8, 2], batch=32, fade=7500, discChannels=384, sharpness=50., sharpnessFadeIn=22500),
+        Stage(start=25000, raycast=[8, 2, 2], batch=16, fade=10000, discChannels=384, sharpness=100., sharpnessFadeIn=50000),
         # Stage(start=35000, raycast=[16, 2, 2], batch=16, fade=8000, discChannels=256, sharpness=160.),
         # Stage(start=60000, raycast=[32, 4], batch=8, fade=8000, discChannels=128, sharpness=320.),
     )
@@ -52,7 +53,7 @@ class HParams:
             else:
                 # sharpness fading must start after previous stage fading ends
                 prevStage = self.stages[idx - 1]
-                assert stage.start - (prevStage.start + prevStage.fade) > self.sharpnessFadeIn
+                # assert stage.start - (prevStage.start + prevStage.fade) > self.sharpnessFadeIn
                 newSize = np.prod(stage.raycast)
                 assert newSize == size * 2
                 size = newSize

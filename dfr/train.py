@@ -42,16 +42,16 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, idx):
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
-    # fade sharpness during transition
-    # TODO: set halfSharpness to none when not fading
+    # fade sharpness independently from transition
     if stageIdx < len(stages) - 1:
         nextStage = stages[stageIdx + 1]
-        gamma = min(max(0.,  1. - (nextStage.start - idx) / hparams.sharpnessFadeIn), 1.)
+        gamma = min(max(0.,  (idx - stage.sharpnessFadeIn) / hparams.sharpnessFadeInterval), 1.)
         fullSharpness = stage.sharpness * (1 - gamma) + nextStage.sharpness * gamma
     else:
-        gamma = 0.
+        gamma = 0
         fullSharpness = stage.sharpness
 
+    # TODO: set halfSharpness to none when not fading
     if stageIdx > 0:
         halfSharpness = fullSharpness
     else:

@@ -18,10 +18,10 @@ def rotateAxes(angles):
 
 # construct a grid of rays viewing the origin from (0, 0, 1)
 def rayGrid(axes, px, D, fov):
-    edge = (D - 1) * np.tan(fov / 2)
+    # edge = (D - 1) * np.tan(fov / 2)
 
     # it's tempting to align the centers of the edge pixels, i.e.
-    # edge = (D - 1) * np.tan(fov / 2) * (1 - 1. / px)
+    edge = (D - 1) * np.tan(fov / 2) * (1 - 1. / px)
     # but don't do it! the scale of the image changes across resolutions, which the discriminator can't handle
 
     xSpace = torch.linspace(-edge, edge, steps=px, device=axes.device).repeat(px, 1)[None, :, :, None]
