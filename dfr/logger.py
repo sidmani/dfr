@@ -37,6 +37,7 @@ class Logger:
         self.logger.add_scalar('discriminator/total', data['discriminator_total'], global_step=idx)
         self.logger.add_scalar('discriminator/penalty', data['penalty'], global_step=idx)
         self.logger.add_scalar('discriminator/alpha', self.ckpt.dis.alpha, global_step=idx)
+        self.logger.add_scalar('discriminator/sigma', data['sigma'], global_step=idx)
 
         self.logger.add_scalar('discriminator/full_sharpness', data['full_sharpness'], global_step=idx)
         self.logger.add_scalar('discriminator/gamma', data['gamma'], global_step=idx)

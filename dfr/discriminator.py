@@ -79,11 +79,11 @@ class Discriminator(nn.Module):
 
         # the faded value from the previous stage
         if self.alpha < 1.0:
-            # create half-sized if not provided
             if half is None:
                 # create the half-size image by directly downsampling from the original
                 oldSize = self.hparams.stages[self.stage - 1].imageSize
                 half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode=mode, align_corners=False)
+
             x2 = self.adapter[self.stage - 1](half)
             x2 = self.activation(x2)
             # linear interpolation between new & old

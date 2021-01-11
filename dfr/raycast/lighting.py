@@ -20,5 +20,6 @@ def shade(data, light, sphereMask, sharpness):
     valueMap = valueMap.permute(0, 3, 1, 2)
     shading = shading.permute(0, 3, 1, 2)
 
-    opacity = torch.exp(-sharpness * valueMap).clamp(max = 1.0)
+    opacity = torch.exp(-sharpness * valueMap).clamp(max = 1.)
+    # opacity = torch.nn.functional.threshold(opacity, 1e-3, value=0.)
     return torch.cat([shading * opacity, opacity], dim=1)
