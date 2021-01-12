@@ -36,7 +36,7 @@ def multiscale(axes, scales, latents, sdf, threshold, half=False, fov=25 * (np.p
             rayMask[rayMask] = minValues <= bound
 
         size *= scale
-        rays = rayGrid(axes, size, cameraD, fov)
+        rays = rayGrid(axes, size, cameraD)
         near, far, sphereMask = computePlanes(rays, axes, cameraD, size)
         if idx == 0:
             smallestMask = sphereMask

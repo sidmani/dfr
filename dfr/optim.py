@@ -6,22 +6,30 @@ from .flags import Flags
 criterion = nn.BCEWithLogitsLoss()
 
 # R1 gradient penalty (Mescheder et al., 2018)
-def R1(real, disReal, gradScaler):
+def R1(real, realHalf, disReal, gradScaler):
+    if realHalf is not None:
+        inputs = (real, realHalf)
+    else:
+        inputs = real
     scaledGrad = torch.autograd.grad(outputs=gradScaler.scale(disReal),
-                                     inputs=real,
+                                     inputs=inputs,
                                      grad_outputs=torch.ones_like(disReal),
                                      create_graph=True,
                                      retain_graph=True,
-                                     only_inputs=True)[0]
+                                     only_inputs=True)
     scale = gradScaler.get_scale()
-    grad = scaledGrad / scale
+    grad = [g / scale for g in scaledGrad]
     with autocast(enabled=Flags.AMP):
         # note that grad has shape NCHW
         # so we sum over channel, height, weight dims
         # and take mean over batch (N) dimension
-        return (grad ** 2.0).sum(dim=[1, 2, 3]).mean()
+        total = (grad[0] ** 2.).sum(dim=[1, 2, 3])
+        if realHalf is not None:
+            total = total + (grad[1] ** 2.).sum(dim=[1, 2, 3])
+        return total.mean()
+        # return (grad ** 2.0).sum(dim=[1, 2, 3]).mean()
 
-def stepDiscriminator(real, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
+def stepDiscriminator(real, realHalf, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
     ### discriminator update ###
     # the generator's not gonna be updated, so detach it from the grad graph
     # also possible that generator has been modified in-place, so can't backprop through it
@@ -33,7 +41,7 @@ def stepDiscriminator(real, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
     disOpt.zero_grad(set_to_none=True)
     real.requires_grad = True
     with autocast(enabled=Flags.AMP):
-        disReal = dis(real).view(-1)
+        disReal = dis(real, realHalf).view(-1)
         label = torch.full((real.shape[0],), 1.0, device=disReal.device)
         disLossReal = criterion(disReal, label)
 
@@ -42,7 +50,7 @@ def stepDiscriminator(real, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
         disLossFake = criterion(disFake, label)
 
     # note that we need to apply sigmoid, since BCEWithLogitsLoss does that internally
-    penalty = r1Factor * R1(real, torch.sigmoid(disReal), gradScaler)
+    penalty = r1Factor * R1(real, realHalf, torch.sigmoid(disReal), gradScaler)
 
     gradScaler.scale(disLossReal + disLossFake + penalty).backward()
     gradScaler.step(disOpt)

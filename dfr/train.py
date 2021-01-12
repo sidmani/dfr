@@ -39,38 +39,37 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
-
-    # fade sigma from old to new during layer fade-in
     if stageIdx > 0:
-        sigma = dis.alpha * stage.sigma + (1 - dis.alpha) * stages[stageIdx - 1].sigma
+        prevStage = stages[stageIdx - 1]
+        # fade sigma & sharpness from old to new
+        sigma = dis.alpha * stage.sigma + (1 - dis.alpha) * prevStage.sigma
+        sharpness = dis.alpha * stage.sharpness + (1 - dis.alpha) * prevStage.sharpness
     else:
         sigma = stage.sigma
-
-    # fade sharpness independently from transition
-    if stageIdx < len(stages) - 1:
-        nextStage = stages[stageIdx + 1]
-        gamma = np.clip((epoch - stage.sharpnessFadeIn) / hparams.sharpnessFadeInterval, 0., 1.)
-        sharpness = stage.sharpness * (1 - gamma) + nextStage.sharpness * gamma
-    else:
-        gamma = 0
         sharpness = stage.sharpness
 
-    # TODO: set halfSharpness to none when not fading
-    if stageIdx > 0 and dis.alpha < 1.:
-        halfSharpness = sharpness
-    else:
-        halfSharpness = None
+    with torch.no_grad():
+        real = blur(next(dataloader), sigma)
+        real_full = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
 
-    real = blur(next(dataloader), sigma)
+        if dis.alpha < 1.:
+            halfSharpness = sharpness
+            real_half = torch.nn.functional.interpolate(real, size=(prevStage.imageSize, prevStage.imageSize), mode='bilinear')
+            real_half.requires_grad = True
+        else:
+            halfSharpness = None
+            real_half = None
+
+        real_full.requires_grad = True
+
     # sample the generator for fake images
     sampled = sample_like(real, ckpt, stage.raycast, sharpness, halfSharpness)
     fake = sampled['full']
     fakeHalf = sampled['half'] if 'half' in sampled else None
-    ds_real = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
-    logData = {'fake': fake, 'real': ds_real, 'full_sharpness':sharpness, 'sigma': sigma, 'gamma': gamma}
+    logData = {'fake': fake, 'real': real_full, 'full_sharpness':sharpness, 'sigma': sigma}
 
     ### discriminator update ###
-    disData = stepDiscriminator(real, fake, fakeHalf, dis, disOpt, gradScaler, hparams.r1Factor)
+    disData = stepDiscriminator(real_full, real_half, fake, fakeHalf, dis, disOpt, gradScaler, hparams.r1Factor)
     logData.update(disData)
 
     genData = stepGenerator(sampled, dis, genOpt, gradScaler, hparams.eikonal)

@@ -10,7 +10,6 @@ class Stage:
     fade: int
     discChannels: int
     sharpness: float
-    sharpnessFadeIn: int
     sigma: float # sigma for gaussian filter
 
     @property
@@ -28,13 +27,12 @@ class HParams:
     omega0_first: float = 5.
     omega0_hidden: float = 5.
     sdfWidth: int = 256
-    sharpnessFadeInterval: int = 500
     stages: Tuple[Stage, ...] = (
         # rule of thumb for sharpness is 2.5 * resolution, except first step
-        # because need lower value for SDF to coalesce
-        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sharpness=10, sharpnessFadeIn=4000, sigma=3.),
-        Stage(start=5000, raycast=[8, 2], batch=32, fade=7500, discChannels=384, sharpness=40., sharpnessFadeIn=22500, sigma=1.5),
-        Stage(start=25000, raycast=[8, 2, 2], batch=16, fade=10000, discChannels=384, sharpness=80., sharpnessFadeIn=50000, sigma=1.),
+        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sharpness=10, sigma=4.),
+        # Stage(start=8000, raycast=[8, 2], batch=32, fade=7500, discChannels=384, sharpness=40., sigma=1.5),
+        Stage(start=3000, raycast=[8, 2], batch=32, fade=2000, discChannels=384, sharpness=40., sigma=1.5),
+        Stage(start=6000, raycast=[8, 2, 2], batch=16, fade=2500, discChannels=384, sharpness=80., sigma=0.75),
         # Stage(start=35000, raycast=[16, 2, 2], batch=16, fade=8000, discChannels=256, sharpness=160.),
         # Stage(start=60000, raycast=[32, 4], batch=8, fade=8000, discChannels=128, sharpness=320.),
     )

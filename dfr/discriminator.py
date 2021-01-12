@@ -45,8 +45,7 @@ class Discriminator(nn.Module):
         self.stageCount = len(hparams.stages)
 
         # 384x2x2 -> 1x1x1
-        # even-sized convolutions have issues
-        # https://papers.nips.cc/paper/2019/hash/2afe4567e1bf64d32a5527244d104cea-Abstract.html
+        # this is effectively a linear layer
         self.output = nn.Conv2d(384, 1, kernel_size=2)
 
         # set up the progressive growing stages
@@ -70,19 +69,19 @@ class Discriminator(nn.Module):
     def forward(self, img, half=None, mode='bilinear'):
         size = self.hparams.stages[self.stage].imageSize
         # interpolate() does nothing if the sizes match
-        full = torch.nn.functional.interpolate(img, size=(size, size), mode=mode, align_corners=False)
+        # full = torch.nn.functional.interpolate(img, size=(size, size), mode=mode, align_corners=True)
 
         # the block corresponding to the current stage
-        x = self.adapter[self.stage](full)
+        x = self.adapter[self.stage](img)
         x = self.activation(x)
         x = self.blocks[self.stageCount - self.stage - 1](x)
 
         # the faded value from the previous stage
         if self.alpha < 1.0:
-            if half is None:
-                # create the half-size image by directly downsampling from the original
-                oldSize = self.hparams.stages[self.stage - 1].imageSize
-                half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode=mode, align_corners=False)
+            # if half is None:
+            #     # create the half-size image by directly downsampling from the original
+            #     oldSize = self.hparams.stages[self.stage - 1].imageSize
+            #     half = torch.nn.functional.interpolate(img, size=(oldSize, oldSize), mode=mode, align_corners=True)
 
             x2 = self.adapter[self.stage - 1](half)
             x2 = self.activation(x2)
