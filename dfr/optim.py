@@ -27,7 +27,6 @@ def R1(real, realHalf, disReal, gradScaler):
         if realHalf is not None:
             total = total + (grad[1] ** 2.).sum(dim=[1, 2, 3])
         return total.mean()
-        # return (grad ** 2.0).sum(dim=[1, 2, 3]).mean()
 
 def stepDiscriminator(real, realHalf, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
     ### discriminator update ###

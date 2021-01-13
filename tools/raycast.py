@@ -10,11 +10,6 @@ from dfr.raycast import raycast
 
 count = 0
 
-# signed-distance function for the half-unit sphere
-class MockSDFSphere:
-    def __call__(self, x):
-        return torch.norm(x, dim=1) - 0.75
-
 class MockSDFCube:
     def __call__(self, x, latents, mask, geomOnly=False):
         latents = latents[mask]
@@ -54,8 +49,7 @@ def main(args):
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
-    ret = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sharpness, halfSharpness=60.)
-    out = ret['image']
+    out = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sharpness)['full']
 
     print(f"{count} SDF queries.")
     obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
@@ -63,21 +57,14 @@ def main(args):
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 
-    half = ret['half']
-    obj1_half = half[0].permute(1, 2, 0).cpu().detach().numpy()
-    obj2_half = half[1].permute(1, 2, 0).cpu().detach().numpy()
-    sil1_half = obj1_half[:, :, 3]
-    sil2_half = obj2_half[:, :, 3]
-
     fig, axs = plt.subplots(4, 2)
     axs[0, 0].imshow(obj1)
     axs[0, 1].imshow(obj2)
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
-    axs[2, 0].imshow(obj1_half)
-    axs[2, 1].imshow(obj2_half)
-    axs[3, 0].imshow(sil1_half)
-    axs[3, 1].imshow(sil2_half)
+
+    axs[2, 0].plot(obj1[imgSize // 2, : , 3])
+    axs[2, 1].plot(obj2[imgSize // 2, : , 3])
 
     plt.show()
 
@@ -108,7 +95,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--sharpness',
             type=float,
-            default=10.0,
+            default=3.0,
     )
     args = parser.parse_args()
     main(args)

@@ -5,8 +5,7 @@ from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import stepDiscriminator, stepGenerator
 from .flags import Flags
-from .image import blur
-# from torchvision.transforms.functional_tensor import gaussian_blur
+from .image import blur, resample
 
 def train(datapath, device, steps, ckpt, logger):
     stages = ckpt.hparams.stages
@@ -29,7 +28,7 @@ def train(datapath, device, steps, ckpt, logger):
         for epoch in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer
             if stage.fade > 0:
-                ckpt.dis.setAlpha(min(1.0, float(epoch - stage.start) / float(stage.fade)))
+                ckpt.dis.setAlpha(stage.evalAlpha(epoch))
             loop(dataloader, stages, i, ckpt, logger, epoch)
 
 # separate the loop function to make sure all variables go out of scope
@@ -41,34 +40,28 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
 
     if stageIdx > 0:
         prevStage = stages[stageIdx - 1]
-        # fade sigma & sharpness from old to new
         sigma = dis.alpha * stage.sigma + (1 - dis.alpha) * prevStage.sigma
-        sharpness = dis.alpha * stage.sharpness + (1 - dis.alpha) * prevStage.sharpness
     else:
         sigma = stage.sigma
-        sharpness = stage.sharpness
 
     with torch.no_grad():
-        real = blur(next(dataloader), sigma)
-        real_full = torch.nn.functional.interpolate(real, size=(stage.imageSize, stage.imageSize), mode='bilinear')
-
-        if dis.alpha < 1.:
-            halfSharpness = sharpness
-            real_half = torch.nn.functional.interpolate(real, size=(prevStage.imageSize, prevStage.imageSize), mode='bilinear')
-            real_half.requires_grad = True
-        else:
-            halfSharpness = None
-            real_half = None
-
+        original = next(dataloader)
+        blurred = blur(original, sigma)
+        real_full = resample(blurred, stage.imageSize)
         real_full.requires_grad = True
 
+        if dis.alpha < 1.:
+            real_half = resample(blurred, size=prevStage.imageSize)
+            real_half.requires_grad = True
+        else:
+            real_half = None
+
     # sample the generator for fake images
-    sampled = sample_like(real, ckpt, stage.raycast, sharpness, halfSharpness)
+    sampled = sample_like(original, ckpt, stage.raycast, sigma / original.shape[2], half=dis.alpha < 1)
     fake = sampled['full']
     fakeHalf = sampled['half'] if 'half' in sampled else None
-    logData = {'fake': fake, 'real': real_full, 'full_sharpness':sharpness, 'sigma': sigma}
+    logData = {'fake': fake, 'real': real_full, 'sigma': sigma}
 
-    ### discriminator update ###
     disData = stepDiscriminator(real_full, real_half, fake, fakeHalf, dis, disOpt, gradScaler, hparams.r1Factor)
     logData.update(disData)
 

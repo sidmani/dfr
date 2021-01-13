@@ -39,8 +39,6 @@ class Logger:
         self.logger.add_scalar('discriminator/alpha', self.ckpt.dis.alpha, global_step=idx)
         self.logger.add_scalar('discriminator/sigma', data['sigma'], global_step=idx)
 
-        self.logger.add_scalar('discriminator/full_sharpness', data['full_sharpness'], global_step=idx)
-
         self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
 
     def writeGenScale(self, data, idx):

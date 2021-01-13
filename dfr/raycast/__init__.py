@@ -9,12 +9,12 @@ from ..flags import Flags
 
 SurfaceData = namedtuple('SurfaceData', ['values', 'textures', 'normals', 'normalLength'])
 
-def sample_like(other, ckpt, scales, sharpness, halfSharpness=None):
+def sample_like(other, ckpt, scales, sigma, half=False):
     batchSize = other.shape[0]
     device = other.device
-    return sample(other.shape[0], other.device, ckpt, scales, sharpness, halfSharpness)
+    return sample(other.shape[0], other.device, ckpt, scales, sigma, half=half)
 
-def sample(batchSize, device, ckpt, scales, sharpness, halfSharpness=None):
+def sample(batchSize, device, ckpt, scales, sigma, half=False):
     # elevation is between 20 and 30 deg (per dataset)
     deg20 = 20 * np.pi / 180
     deg10 = 10 * np.pi / 180
@@ -23,7 +23,7 @@ def sample(batchSize, device, ckpt, scales, sharpness, halfSharpness=None):
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
     angles = (phis, thetas)
     z = torch.normal(0.0, ckpt.hparams.latentStd, (batchSize, ckpt.hparams.latentSize), device=device)
-    return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sharpness, halfSharpness)
+    return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sigma, half=half)
 
 def evalSurface(data, sdf, gradScaler, threshold):
     with autocast(enabled=Flags.AMP):
@@ -44,15 +44,15 @@ def evalSurface(data, sdf, gradScaler, threshold):
     # need epsilon in denominator for numerical stability
     unitNormals = normals / (normalLength + 1e-5)
 
-    return SurfaceData(values - threshold, textures, unitNormals, normalLength)
+    return SurfaceData(values, textures, unitNormals, normalLength)
 
-def raycast(angles, scales, latents, sdf, gradScaler, sharpness, halfSharpness=None, threshold=5e-3):
+def raycast(angles, scales, latents, sdf, gradScaler, sigma, half=False, threshold=5e-3):
     with torch.no_grad():
         axes = rotateAxes(angles)
-        fullData, halfData = multiscale(axes, scales, latents, sdf, threshold, half=halfSharpness is not None)
+        fullData, halfData = multiscale(axes, scales, latents, sdf, threshold, half=half)
 
     fullSurface = evalSurface(fullData, sdf, gradScaler, threshold)
-    if halfSharpness is not None:
+    if half:
         halfSurface = evalSurface(halfData, sdf, gradScaler, threshold)
 
     with autocast(enabled=Flags.AMP):
@@ -62,8 +62,8 @@ def raycast(angles, scales, latents, sdf, gradScaler, sharpness, halfSharpness=N
         # light[:, 1] = 0
         # light = light / light.norm(dim=1).unsqueeze(1)
         ret = {'normalLength': fullSurface.normalLength}
-        ret['full'] = shade(fullSurface, light, fullData.mask, sharpness)
-        if halfSharpness is not None:
-            ret['half'] = shade(halfSurface, light, halfData.mask, halfSharpness)
+        ret['full'] = shade(fullSurface, light, fullData.mask, sigma, threshold)
+        if half:
+            ret['half'] = shade(halfSurface, light, halfData.mask, sigma, threshold)
 
         return ret

@@ -1,5 +1,6 @@
 import numpy as np
-from torchvision.transforms.functional_tensor import gaussian_blur
+from kornia.filters import gaussian_blur2d
+import torch.nn.functional as F
 
 def blur(img, sigma, kernel=None):
     if kernel is None:
@@ -9,4 +10,9 @@ def blur(img, sigma, kernel=None):
         if kernel % 2 == 0:
             kernel += 1
 
-    return gaussian_blur(img, [kernel, kernel], [sigma, sigma])
+    return gaussian_blur2d(img, (kernel, kernel), (sigma, sigma))
+
+def resample(img, size):
+    # note that align_corners=True aligns the centers of the corner pixels
+    # so it's incorrect, since the discriminator uses average pooling
+    return F.interpolate(img, size=(size, size), mode='bilinear', align_corners=False)
