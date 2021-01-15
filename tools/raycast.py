@@ -49,7 +49,7 @@ def main(args):
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
-    out = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sharpness)['full']
+    out = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sigma)['full']
 
     print(f"{count} SDF queries.")
     obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
@@ -58,8 +58,8 @@ def main(args):
     sil2 = obj2[:, :, 3]
 
     fig, axs = plt.subplots(4, 2)
-    axs[0, 0].imshow(obj1)
-    axs[0, 1].imshow(obj2)
+    axs[0, 0].imshow(obj1[:, :, :])
+    axs[0, 1].imshow(obj2[:, :, :])
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
 
@@ -88,14 +88,9 @@ if __name__ == "__main__":
             default=[32, 4],
     )
     parser.add_argument(
-            '--pool',
-            type=int,
-            default=0,
-    )
-    parser.add_argument(
-            '--sharpness',
+            '--sigma',
             type=float,
-            default=3.0,
+            default=0.05,
     )
     args = parser.parse_args()
     main(args)

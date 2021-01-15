@@ -1,13 +1,9 @@
 import torch
 import torch.nn as nn
-import numpy as np
 from .siren import SineLayer, siren_linear_init
 
 # The SDF network is a SIREN, with FiLM conditioning, as in pi-GAN.
 # - the FiLM network is run multiple times on the same latents; do forward pass before mask
-# - omega_0 is set to 1 everywhere (SIREN uses 30), but the SDF doesn't coalesce with higher values.
-# - is_first=True is not set on the first layer.
-# - the variance of the latent vector is high (or is it low?)
 # - the branches are deeper than in related architectures (like NeRF)
 
 class SDFNetwork(nn.Module):

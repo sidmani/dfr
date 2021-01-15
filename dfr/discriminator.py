@@ -24,8 +24,6 @@ class ProgressiveBlock(nn.Module):
             activation,
             nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
             activation,
-            # aliasing may be a mild issue with the downsampled generator image
-            # https://richzhang.github.io/antialiased-cnns/
             nn.AvgPool2d(2),
         )
         self.inChannels = inChannels

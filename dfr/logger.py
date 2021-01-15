@@ -4,9 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 from .raycast import raycast
 
 class Logger:
-    def __init__(self, ckpt, gradientData=False, activations=False):
-        self.gradientData = gradientData
-        self.activations = activations
+    def __init__(self, ckpt):
         self.ckpt = ckpt
         self.logger = SummaryWriter(ckpt.loc)
 
@@ -15,17 +13,12 @@ class Logger:
 
         if idx % 50 == 0:
             self.writeImages(data, idx)
-            if self.activations:
-                self.writeActivations(idx)
 
         # if idx % 200 == 0:
         #     self.writeFixedSamples(idx)
 
         if idx % 10 == 0:
             self.writeGenScale(data, idx)
-
-        if self.gradientData and idx % 30 == 0:
-            self.writeGradientData(data, idx)
 
     def writeScalars(self, data, idx):
         if 'generator_loss' in data:
@@ -58,40 +51,17 @@ class Logger:
         self.logger.add_image('real/real', real[0][:3], global_step=idx)
         self.logger.add_image('real/silhouette', real[0][3], dataformats='HW', global_step=idx)
 
-    def writeFixedSamples(self, idx):
-        device = self.ckpt.examples.device
-        phis = torch.ones(3, device=device) * np.pi / 6.
-        thetas = torch.tensor([-0.25, 0.0, 0.25], device=device) * np.pi
-        hp = self.ckpt.hparams
-        result = raycast(phis,
-                       thetas,
-                       hp.raycastSteps,
-                       hp.fov,
-                       self.ckpt.examples,
-                       self.ckpt.gen,
-                       self.ckpt.gradScaler)
-        imgs = result['image']
-        self.logger.add_images('fake/fixed_sample', imgs[:, :3], global_step=idx)
-
-    def writeGradientData(self, data, idx):
-        fake = data['fake']
-        real = data['real']
-        real.requires_grad = True
-
-        fakeOutput = self.dis(fake)
-        realOutput = self.dis(real)
-
-        fakeGrad = torch.autograd.grad(outputs=fakeOutput,
-                       inputs=fake,
-                       grad_outputs=torch.ones_like(fakeOutput),
-                       only_inputs=True)[0]
-        realGrad = torch.autograd.grad(outputs=realOutput,
-                       inputs=real,
-                       grad_outputs=torch.ones_like(realOutput),
-                       only_inputs=True)[0]
-
-        fakeGrad = (fakeGrad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
-        realGrad = (realGrad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
-
-        self.logger.add_histogram('fake_gradient', fakeGrad, global_step=idx)
-        self.logger.add_histogram('real_gradient', realGrad, global_step=idx)
+    # def writeFixedSamples(self, idx):
+    #     device = self.ckpt.examples.device
+    #     phis = torch.ones(3, device=device) * np.pi / 6.
+    #     thetas = torch.tensor([-0.25, 0.0, 0.25], device=device) * np.pi
+    #     hp = self.ckpt.hparams
+    #     result = raycast(phis,
+    #                    thetas,
+    #                    hp.raycastSteps,
+    #                    hp.fov,
+    #                    self.ckpt.examples,
+    #                    self.ckpt.gen,
+    #                    self.ckpt.gradScaler)
+    #     imgs = result['image']
+    #     self.logger.add_images('fake/fixed_sample', imgs[:, :3], global_step=idx)

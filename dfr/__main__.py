@@ -43,21 +43,6 @@ def setArgs(parser):
         help='Load a checkpoint by name. This will ignore saved hyperparameters in favor of the checkpoint\'s specified values'
     )
     parser.add_argument(
-        '--debug-grad',
-        dest='debug_grad',
-        action='store_true',
-        default=False,
-        help='Log discriminator gradient data to a Tensorboard histogram. Useful for debugging vanishing/exploding gradients and Lipschitz condition.'
-    )
-    parser.add_argument(
-        '--debug-activations',
-        '-A',
-        dest='debug_act',
-        action='store_true',
-        default=False,
-        help='Log the activation histogram of each layer.'
-    )
-    parser.add_argument(
         '--profile',
         dest='profile',
         action='store_true',
@@ -96,9 +81,7 @@ def main(args):
     if args.no_log:
         logger = None
     else:
-        logger = Logger(ckpt,
-                        gradientData=args.debug_grad,
-                        activations=args.debug_act)
+        logger = Logger(ckpt)
 
     pp = pprint.PrettyPrinter(indent=2)
     print('Flags')

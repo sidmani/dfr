@@ -16,7 +16,9 @@ class Stage:
         return np.prod(self.raycast)
 
     def evalAlpha(self, epoch):
-        return min(1.0, float(epoch - self.start) / float(self.fade))
+        if self.fade > 0:
+            return min(1.0, float(epoch - self.start) / float(self.fade))
+        return 1.
 
 @dataclass
 class HParams:

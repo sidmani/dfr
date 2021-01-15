@@ -14,5 +14,5 @@ def blur(img, sigma, kernel=None):
 
 def resample(img, size):
     # note that align_corners=True aligns the centers of the corner pixels
-    # so it's incorrect, since the discriminator uses average pooling
+    # so we want align_corners=False, since the discriminator uses average pooling
     return F.interpolate(img, size=(size, size), mode='bilinear', align_corners=False)

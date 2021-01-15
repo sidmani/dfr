@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from .raycast import sample_like
 from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
@@ -26,9 +25,8 @@ def train(datapath, device, steps, ckpt, logger):
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
         dataloader = makeDataloader(stage.batch, dataset, device)
         for epoch in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
-            # fade in the new discriminator layer
-            if stage.fade > 0:
-                ckpt.dis.setAlpha(stage.evalAlpha(epoch))
+            # fade in the new discriminator layer as necessary
+            ckpt.dis.setAlpha(stage.evalAlpha(epoch))
             loop(dataloader, stages, i, ckpt, logger, epoch)
 
 # separate the loop function to make sure all variables go out of scope

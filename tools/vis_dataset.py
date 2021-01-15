@@ -35,10 +35,10 @@ img_16 = img_16.permute(1, 2, 0).detach().numpy()
 
 
 fig, axs = plt.subplots(4, 3)
-axs[0, 0].imshow(img_128)
-axs[1, 0].imshow(img_64)
-axs[2, 0].imshow(img_32)
-axs[3, 0].imshow(img_16)
+axs[0, 0].imshow(img_128[:, :, :3])
+axs[1, 0].imshow(img_64[:, :, :3])
+axs[2, 0].imshow(img_32[:, :, :3])
+axs[3, 0].imshow(img_16[:, :, :3])
 
 axs[0, 1].imshow(img_128[:, :, 3])
 axs[1, 1].imshow(img_64[:, :, 3])
