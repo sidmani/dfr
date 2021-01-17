@@ -41,7 +41,7 @@ def main():
     latents[0, :6] = torch.tensor([0.0, 0.0, 1.0, 0.5, 0.5, 0.5], device=device, dtype=dtype)
 
     phis = torch.tensor([np.pi/4], device=device, dtype=dtype)
-    thetas = torch.tensor([np.pi/4], device=device, dtype=dtype)
+    thetas = torch.tensor([np.pi/3], device=device, dtype=dtype)
     gradScaler = GradScaler(enabled=False)
     real = raycast((phis, thetas), [32, 4], latents, sdf, gradScaler, 0.)['full']
 

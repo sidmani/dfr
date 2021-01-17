@@ -27,7 +27,17 @@ def train(datapath, device, steps, ckpt, logger):
         for epoch in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer as necessary
             ckpt.dis.setAlpha(stage.evalAlpha(epoch))
+            # if stage.fade > 0:
+            #     ckpt.dis.setAlpha(0)
             loop(dataloader, stages, i, ckpt, logger, epoch)
+
+# def getBatch(dataloader, sigma, size):
+#     with torch.no_grad():
+#         original = next(dataloader)
+#         blurred = blur(original, sigma)
+#         real_full = resample(blurred, size)
+#         real_full.requires_grad = True
+#     return real_full
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
@@ -42,9 +52,14 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
     else:
         sigma = stage.sigma
 
+    # real_full = getBatch(dataloader, sigma, stage.imageSize)
+    # if real_full.shape[0] != stage.batch:
+    #     real_full = getBatch(dataloader, sigma, stage.imageSize)
+
     with torch.no_grad():
         original = next(dataloader)
-        blurred = blur(original, sigma)
+        blurred = original
+        # blurred = blur(original, sigma)
         real_full = resample(blurred, stage.imageSize)
         real_full.requires_grad = True
 

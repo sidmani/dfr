@@ -29,6 +29,7 @@ def main(args):
     stageIdx = ckpt.startStage
     stages = hp.stages
     dis = ckpt.dis
+    dis.setAlpha(stage.evalAlpha(ckpt.startEpoch))
 
     if stageIdx > 0:
         prevStage = stages[stageIdx - 1]

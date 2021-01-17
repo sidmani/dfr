@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils import weight_norm
 import numpy as np
 from tools.stats import tensor_stats
 
@@ -20,14 +19,23 @@ class ProgressiveBlock(nn.Module):
         # inChannels x S x S -> outChannels x S/2 x S/2
         self.layers = nn.Sequential(
             # pi-GAN uses in->out, out->out, but pro-gan uses in->in, in->out
-            nn.Conv2d(inChannels, inChannels, kernel_size=3, padding=1),
-            activation,
             nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
+            # nn.BatchNorm2d(inChannels),
+            activation,
+            nn.Conv2d(outChannels, outChannels, kernel_size=3, padding=1),
+            # nn.BatchNorm2d(outChannels),
             activation,
             nn.AvgPool2d(2),
         )
+        # nn.init.normal_(self.layers[0].weight, std=1e-3)
+        # nn.init.normal_(self.layers[2].weight, std=1e-3)
+        # nn.init.kaiming_normal_(self.layers[0].weight, mode='fan_out', a=0.2)
+        # nn.init.kaiming_normal_(self.layers[2].weight, mode='fan_out', a=0.2)
+        # nn.init.constant_(self.layers[0].bias, 0)
+        # nn.init.constant_(self.layers[2].bias, 0)
         self.inChannels = inChannels
         self.outChannels = outChannels
+        self.activation = activation
 
     def forward(self, x):
         return self.layers(x)
@@ -47,7 +55,7 @@ class Discriminator(nn.Module):
         self.output = nn.Conv2d(384, 1, kernel_size=2)
 
         # set up the progressive growing stages
-        for stage in hparams.stages:
+        for idx, stage in enumerate(hparams.stages):
             conv = nn.Conv2d(self.inChannels, stage.discChannels, kernel_size=1)
             self.adapter.append(conv)
 
@@ -65,8 +73,6 @@ class Discriminator(nn.Module):
         self.alpha = alpha
 
     def forward(self, img, half=None):
-        size = self.hparams.stages[self.stage].imageSize
-
         # the block corresponding to the current stage
         x = self.adapter[self.stage](img)
         x = self.activation(x)
@@ -74,6 +80,7 @@ class Discriminator(nn.Module):
 
         # the faded value from the previous stage
         if self.alpha < 1.0:
+            half = torch.nn.functional.avg_pool2d(img, 2)
             x2 = self.adapter[self.stage - 1](half)
             x2 = self.activation(x2)
             # linear interpolation between new & old

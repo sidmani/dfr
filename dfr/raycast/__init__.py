@@ -44,9 +44,10 @@ def evalSurface(data, sdf, gradScaler, threshold):
     # need epsilon in denominator for numerical stability
     unitNormals = normals / (normalLength + 1e-5)
 
-    return SurfaceData(values, textures, unitNormals, normalLength)
+    return SurfaceData(values - threshold, textures, unitNormals, normalLength)
 
 def raycast(angles, scales, latents, sdf, gradScaler, sigma, half=False, threshold=5e-3):
+    half = False
     with torch.no_grad():
         axes = rotateAxes(angles)
         fullData, halfData = multiscale(axes, scales, latents, sdf, threshold, half=half)
@@ -62,8 +63,8 @@ def raycast(angles, scales, latents, sdf, gradScaler, sigma, half=False, thresho
         # light[:, 1] = 0
         # light = light / light.norm(dim=1).unsqueeze(1)
         ret = {'normalLength': fullSurface.normalLength}
-        ret['full'] = shade(fullSurface, light, fullData.mask, sigma, threshold)
+        ret['full'] = shade(fullSurface, light, fullData.mask, sigma)
         if half:
-            ret['half'] = shade(halfSurface, light, halfData.mask, sigma, threshold)
+            ret['half'] = shade(halfSurface, light, halfData.mask, sigma)
 
         return ret

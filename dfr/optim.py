@@ -2,30 +2,33 @@ import torch
 import torch.nn as nn
 from torch.cuda.amp import autocast
 from .flags import Flags
+from tools.grad_graph import register_hooks
 
 criterion = nn.BCEWithLogitsLoss()
 
 # R1 gradient penalty (Mescheder et al., 2018)
 def R1(real, realHalf, disReal, gradScaler):
-    if realHalf is not None:
-        inputs = (real, realHalf)
-    else:
-        inputs = real
+    # if realHalf is not None:
+    #     inputs = (real, realHalf)
+    # else:
+    inputs = real
     scaledGrad = torch.autograd.grad(outputs=gradScaler.scale(disReal),
                                      inputs=inputs,
                                      grad_outputs=torch.ones_like(disReal),
-                                     create_graph=True,
-                                     retain_graph=True,
-                                     only_inputs=True)
+                                     create_graph=True)
     scale = gradScaler.get_scale()
     grad = [g / scale for g in scaledGrad]
     with autocast(enabled=Flags.AMP):
         # note that grad has shape NCHW
         # so we sum over channel, height, weight dims
         # and take mean over batch (N) dimension
-        total = (grad[0] ** 2.).sum(dim=[1, 2, 3])
-        if realHalf is not None:
-            total = total + (grad[1] ** 2.).sum(dim=[1, 2, 3])
+        total = grad[0]
+        # if realHalf is not None:
+        #     total = total + nn.functional.interpolate(grad[1], scale_factor=2., mode='nearest') / 4
+
+        total = (total ** 2.).sum(dim=[1, 2, 3])
+        # if realHalf is not None:
+        #     total = total + (grad[1] ** 2.).sum(dim=[1, 2, 3])
         return total.mean()
 
 def stepDiscriminator(real, realHalf, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
@@ -73,6 +76,7 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
         p.requires_grad = False
 
     genOpt.zero_grad(set_to_none=True)
+    # with torch.autograd.detect_anomaly():
     with autocast(enabled=Flags.AMP):
         # normals have already been scaled to correct values
         # the eikonal loss encourages the sdf to have unit gradient
@@ -85,7 +89,12 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
         genLoss = criterion(output, label) + eikonal * eikonalLoss
 
     # graph: genLoss -> discriminator -> generator
+    # get_dot = register_hooks(genLoss)
     gradScaler.scale(genLoss).backward()
+    # dot = get_dot()
+    # dot.save('gen_loss.dot')
+    # assert False
+
     gradScaler.step(genOpt)
 
     for p in dis.parameters():
