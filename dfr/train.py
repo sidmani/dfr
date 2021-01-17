@@ -4,7 +4,7 @@ from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import stepDiscriminator, stepGenerator
 from .flags import Flags
-from .image import blur, resample
+from .image import resample
 
 def train(datapath, device, steps, ckpt, logger):
     stages = ckpt.hparams.stages
@@ -27,17 +27,7 @@ def train(datapath, device, steps, ckpt, logger):
         for epoch in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer as necessary
             ckpt.dis.setAlpha(stage.evalAlpha(epoch))
-            # if stage.fade > 0:
-            #     ckpt.dis.setAlpha(0)
             loop(dataloader, stages, i, ckpt, logger, epoch)
-
-# def getBatch(dataloader, sigma, size):
-#     with torch.no_grad():
-#         original = next(dataloader)
-#         blurred = blur(original, sigma)
-#         real_full = resample(blurred, size)
-#         real_full.requires_grad = True
-#     return real_full
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
@@ -46,36 +36,19 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
-    if stageIdx > 0:
-        prevStage = stages[stageIdx - 1]
-        sigma = dis.alpha * stage.sigma + (1 - dis.alpha) * prevStage.sigma
-    else:
-        sigma = stage.sigma
-
-    # real_full = getBatch(dataloader, sigma, stage.imageSize)
-    # if real_full.shape[0] != stage.batch:
-    #     real_full = getBatch(dataloader, sigma, stage.imageSize)
+    sigma = stage.sigma
 
     with torch.no_grad():
         original = next(dataloader)
-        blurred = original
-        # blurred = blur(original, sigma)
-        real_full = resample(blurred, stage.imageSize)
+        real_full = resample(original, stage.imageSize)
         real_full.requires_grad = True
 
-        if dis.alpha < 1.:
-            real_half = resample(blurred, size=prevStage.imageSize)
-            real_half.requires_grad = True
-        else:
-            real_half = None
-
     # sample the generator for fake images
-    sampled = sample_like(original, ckpt, stage.raycast, sigma / original.shape[2], half=dis.alpha < 1)
+    sampled = sample_like(original, ckpt, stage.raycast, sigma / original.shape[2])
     fake = sampled['full']
-    fakeHalf = sampled['half'] if 'half' in sampled else None
     logData = {'fake': fake, 'real': real_full, 'sigma': sigma}
 
-    disData = stepDiscriminator(real_full, real_half, fake, fakeHalf, dis, disOpt, gradScaler, hparams.r1Factor)
+    disData = stepDiscriminator(real_full, None, fake, None, dis, disOpt, gradScaler, hparams.r1Factor)
     logData.update(disData)
 
     genData = stepGenerator(sampled, dis, genOpt, gradScaler, hparams.eikonal)
@@ -88,9 +61,7 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
     gradScaler.update()
 
     if logger is not None:
-        # write the log output
         logger.log(logData, epoch)
 
-    # save every 100 iterations
     if not Flags.silent and epoch % 100 == 0:
         ckpt.save(epoch, overwrite=True)

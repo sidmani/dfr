@@ -19,6 +19,7 @@ class ProgressiveBlock(nn.Module):
         # inChannels x S x S -> outChannels x S/2 x S/2
         self.layers = nn.Sequential(
             # pi-GAN uses in->out, out->out, but pro-gan uses in->in, in->out
+            # the first one uses fewer params
             nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
             # nn.BatchNorm2d(inChannels),
             activation,
@@ -27,10 +28,6 @@ class ProgressiveBlock(nn.Module):
             activation,
             nn.AvgPool2d(2),
         )
-        # nn.init.normal_(self.layers[0].weight, std=1e-3)
-        # nn.init.normal_(self.layers[2].weight, std=1e-3)
-        # nn.init.kaiming_normal_(self.layers[0].weight, mode='fan_out', a=0.2)
-        # nn.init.kaiming_normal_(self.layers[2].weight, mode='fan_out', a=0.2)
         # nn.init.constant_(self.layers[0].bias, 0)
         # nn.init.constant_(self.layers[2].bias, 0)
         self.inChannels = inChannels

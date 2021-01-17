@@ -9,7 +9,7 @@ class Stage:
     batch: int
     fade: int
     discChannels: int
-    sigma: float # sigma for gaussian filter
+    sigma: float
 
     @property
     def imageSize(self):
@@ -32,14 +32,11 @@ class HParams:
     omega0_hidden: float = 5.
     sdfWidth: int = 256
     stages: Tuple[Stage, ...] = (
-        # rule of thumb for sharpness is 2.5 * resolution, except first step
         Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sigma=8.),
-        # Stage(start=8000, raycast=[8, 2], batch=32, fade=7500, discChannels=384, sigma=1.5),
-        Stage(start=4000, raycast=[16], batch=32, fade=2500, discChannels=384, sigma=3.),
-        Stage(start=7000, raycast=[32], batch=16, fade=2500, discChannels=384, sigma=1.5),
-        # Stage(start=25000, raycast=[8, 2, 2], batch=16, fade=7500, discChannels=384, sharpness=24., sigma=0.75),
-        # Stage(start=35000, raycast=[16, 2, 2], batch=16, fade=8000, discChannels=256, sharpness=160.),
-        # Stage(start=60000, raycast=[32, 4], batch=8, fade=8000, discChannels=128, sharpness=320.),
+        Stage(start=4000, raycast=[16], batch=32, fade=2500, discChannels=384, sigma=2.),
+        Stage(start=7000, raycast=[32], batch=16, fade=2500, discChannels=384, sigma=1.),
+        # Stage(start=6000, raycast=[16], batch=32, fade=5000, discChannels=384, sigma=3.),
+        # Stage(start=20000, raycast=[32], batch=16, fade=5000, discChannels=384, sigma=1.5),
     )
 
     def __post_init__(self):
@@ -52,12 +49,11 @@ class HParams:
             last = stage.start
 
             if idx == 0:
+                assert stage.start == 0
                 assert stage.fade == 0
                 size = np.prod(stage.raycast)
             else:
-                # sharpness fading must start after previous stage fading ends
                 prevStage = self.stages[idx - 1]
-                # assert stage.start - (prevStage.start + prevStage.fade) > self.sharpnessFadeIn
                 newSize = np.prod(stage.raycast)
                 assert newSize == size * 2
                 size = newSize
