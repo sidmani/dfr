@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.cuda.amp import autocast
 from .flags import Flags
-from tools.grad_graph import register_hooks
 
 criterion = nn.BCEWithLogitsLoss()
 
@@ -20,22 +19,21 @@ def R1(real, disReal, gradScaler):
         # and take mean over batch (N) dimension
         return (grad[0] ** 2.).sum(dim=[1, 2, 3]).mean()
 
-def stepDiscriminator(real, realHalf, fake, fakeHalf, dis, disOpt, gradScaler, r1Factor):
+def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
     # the generator's not gonna be updated, so detach it from the grad graph
     # also possible that generator has been modified in-place, so can't backprop through it
     # detach() sets requires_grad=False, so reset it to True
     # need to clone so that in-place ops in CNN are legal
     detachedFake = fake.detach().clone().requires_grad_()
-    detachedFakeHalf = fakeHalf.detach().clone().requires_grad_() if fakeHalf is not None else None
 
     disOpt.zero_grad(set_to_none=True)
     real.requires_grad = True
     with autocast(enabled=Flags.AMP):
-        disReal = dis(real, realHalf).view(-1)
+        disReal = dis(real).view(-1)
         label = torch.full((real.shape[0],), 1.0, device=disReal.device)
         disLossReal = criterion(disReal, label)
 
-        disFake = dis(detachedFake, detachedFakeHalf).view(-1)
+        disFake = dis(detachedFake).view(-1)
         label = torch.full((real.shape[0],), 0.0, device=disReal.device)
         disLossFake = criterion(disFake, label)
 
@@ -83,7 +81,4 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
     for p in dis.parameters():
         p.requires_grad = True
 
-    logData = {}
-    logData['generator_loss'] = genLoss.detach()
-    logData['eikonal_loss'] = eikonalLoss.detach()
-    return logData
+    return {'generator_loss': genLoss.detach(), 'eikonal_loss': eikonalLoss.detach()}

@@ -30,7 +30,6 @@ class Logger:
         self.logger.add_scalar('discriminator/total', data['discriminator_total'], global_step=idx)
         self.logger.add_scalar('discriminator/penalty', data['penalty'], global_step=idx)
         self.logger.add_scalar('discriminator/alpha', self.ckpt.dis.alpha, global_step=idx)
-        self.logger.add_scalar('discriminator/sigma', data['sigma'], global_step=idx)
 
         self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
 

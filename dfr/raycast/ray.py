@@ -13,7 +13,7 @@ def upsample(t, scale):
     return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
 # iteratively raycast at increasing resolution
-def multiscale(axes, scales, latents, sdf, threshold, half=False, fov=25 * (np.pi / 180)):
+def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
     cameraD = 1.0 / np.tan(fov / 2.0)
 
     batch = axes.shape[0]
@@ -61,23 +61,11 @@ def multiscale(axes, scales, latents, sdf, threshold, half=False, fov=25 * (np.p
 
         terminal[rayMask] = distances.unsqueeze(1)
 
-        if half and idx == len(scales) - 2:
-            assert scales[-1] == 2
-            halfSphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
-            halfPoints = (origin + terminal * rays)[halfSphereMask]
-            halfPoints.requires_grad = True
-            halfData = SampleData(halfPoints, expandedLatents, halfSphereMask)
-
-    if not half:
-        halfData = None
-
     # use the lowest-resolution mask, because the high res mask includes unsampled rays
     sphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
     points = (origin + terminal * rays)[sphereMask]
     points.requires_grad = True
-    fullData = SampleData(points, expandedLatents, sphereMask)
-    return fullData, halfData
-
+    return SampleData(points, expandedLatents, sphereMask)
 
 # batched sphere tracing with culling of terminated rays
 def sphereTrace(rays, origin, planes, latents, sdf, threshold, steps=16):

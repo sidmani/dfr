@@ -69,7 +69,7 @@ class Discriminator(nn.Module):
     def setAlpha(self, alpha):
         self.alpha = alpha
 
-    def forward(self, img, half=None):
+    def forward(self, img):
         # the block corresponding to the current stage
         x = self.adapter[self.stage](img)
         x = self.activation(x)

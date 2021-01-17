@@ -17,13 +17,13 @@ def unmask(values, sphereMask):
 def shade(data, light, sphereMask, sigma):
     illum = illuminate(light, data.normals)
 
-    # TODO: the .float() is needed due to index put, even though this is autocasted. why?
+    # TODO: weird that we need to cast manually, considering inside AMP context
     valueMap = unmask(data.values.float(), sphereMask)
     colorMap = unmask(data.textures.float(), sphereMask)
     illumMap = unmask(illum.float(), sphereMask)
 
     # the illumination value isn't well defined outside the surface, and can mess up the gradients
-    # so just set it to one.
+    # so just set it to one. not clear if this affects discriminator.
     illumMap[valueMap > 0] = 1.0
 
     if sigma > 0:

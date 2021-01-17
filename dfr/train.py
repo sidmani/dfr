@@ -36,19 +36,17 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
-    sigma = stage.sigma
-
     with torch.no_grad():
         original = next(dataloader)
-        real_full = resample(original, stage.imageSize)
-        real_full.requires_grad = True
+        real = resample(original, stage.imageSize)
+        real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(original, ckpt, stage.raycast, sigma / original.shape[2])
+    sampled = sample_like(original, ckpt, stage.raycast, stage.sigma / original.shape[2])
     fake = sampled['full']
-    logData = {'fake': fake, 'real': real_full, 'sigma': sigma}
+    logData = {'fake': fake, 'real': real}
 
-    disData = stepDiscriminator(real_full, None, fake, None, dis, disOpt, gradScaler, hparams.r1Factor)
+    disData = stepDiscriminator(real, fake, dis, disOpt, gradScaler, hparams.r1Factor)
     logData.update(disData)
 
     genData = stepGenerator(sampled, dis, genOpt, gradScaler, hparams.eikonal)

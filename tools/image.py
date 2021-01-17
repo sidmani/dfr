@@ -31,11 +31,7 @@ def main(args):
     dis = ckpt.dis
     dis.setAlpha(stage.evalAlpha(ckpt.startEpoch))
 
-    if stageIdx > 0:
-        prevStage = stages[stageIdx - 1]
-        sigma = dis.alpha * stage.sigma + (1 - dis.alpha) * prevStage.sigma
-    else:
-        sigma = stage.sigma
+    sigma = stage.sigma
 
     with torch.no_grad():
         original = next(dataloader)

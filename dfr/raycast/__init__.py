@@ -9,12 +9,12 @@ from ..flags import Flags
 
 SurfaceData = namedtuple('SurfaceData', ['values', 'textures', 'normals', 'normalLength'])
 
-def sample_like(other, ckpt, scales, sigma, half=False):
+def sample_like(other, ckpt, scales, sigma):
     batchSize = other.shape[0]
     device = other.device
-    return sample(other.shape[0], other.device, ckpt, scales, sigma, half=half)
+    return sample(other.shape[0], other.device, ckpt, scales, sigma)
 
-def sample(batchSize, device, ckpt, scales, sigma, half=False):
+def sample(batchSize, device, ckpt, scales, sigma):
     # elevation is between 20 and 30 deg (per dataset)
     deg20 = 20 * np.pi / 180
     deg10 = 10 * np.pi / 180
@@ -23,7 +23,7 @@ def sample(batchSize, device, ckpt, scales, sigma, half=False):
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
     angles = (phis, thetas)
     z = torch.normal(0.0, ckpt.hparams.latentStd, (batchSize, ckpt.hparams.latentSize), device=device)
-    return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sigma, half=half)
+    return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sigma)
 
 def evalSurface(data, sdf, gradScaler, threshold):
     with autocast(enabled=Flags.AMP):
@@ -46,17 +46,13 @@ def evalSurface(data, sdf, gradScaler, threshold):
 
     return SurfaceData(values - threshold, textures, unitNormals, normalLength)
 
-def raycast(angles, scales, latents, sdf, gradScaler, sigma, half=False, threshold=5e-3):
-    half = False
+def raycast(angles, scales, latents, sdf, gradScaler, sigma, threshold=5e-3):
     with torch.no_grad():
         axes = rotateAxes(angles)
-        fullData, halfData = multiscale(axes, scales, latents, sdf, threshold, half=half)
-
-    fullSurface = evalSurface(fullData, sdf, gradScaler, threshold)
-    if half:
-        halfSurface = evalSurface(halfData, sdf, gradScaler, threshold)
+        fullData = multiscale(axes, scales, latents, sdf, threshold)
 
     with autocast(enabled=Flags.AMP):
+        fullSurface = evalSurface(fullData, sdf, gradScaler, threshold)
         # light is directed from the point below the camera on the zx plane
         light = axes[:, 2]
         # project to zx plane and normalize
@@ -64,7 +60,4 @@ def raycast(angles, scales, latents, sdf, gradScaler, sigma, half=False, thresho
         # light = light / light.norm(dim=1).unsqueeze(1)
         ret = {'normalLength': fullSurface.normalLength}
         ret['full'] = shade(fullSurface, light, fullData.mask, sigma)
-        if half:
-            ret['half'] = shade(halfSurface, light, halfData.mask, sigma)
-
         return ret

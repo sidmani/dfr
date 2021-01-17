@@ -50,8 +50,6 @@ def main(args):
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
     out = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sigma)['full']
-    print(out.max())
-    print(out.min())
 
     print(f"{count} SDF queries.")
     obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
