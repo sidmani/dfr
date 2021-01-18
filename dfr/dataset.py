@@ -1,3 +1,4 @@
+import torch
 from itertools import repeat
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
@@ -11,21 +12,21 @@ class ImageDataset(Dataset):
         super().__init__()
         self.dataset = []
 
-        # load images into RAM
         objects = list(dataPath.glob('*'))
         self.length = len(objects)
 
         print(f"Loading entire dataset into CPU memory...")
         toTensor = transforms.ToTensor()
         for obj in tqdm(objects):
-            img = Image.open(obj)
-            tens = toTensor(img)
-            # some of the images have partially transparent portions (alpha > 0.5)
-            # but we don't support that, so make them solid
-            # solid = tens[3] > 0.5
-            # tens[3, solid] = 1.0
+            with torch.no_grad():
+                img = Image.open(obj)
+                tens = toTensor(img)
+                # some of the images have partially transparent portions (alpha > 0.5)
+                # but we don't support that, so make them solid
+                # solid = tens[3] > 0.5
+                # tens[3, solid] = 1.0
 
-            self.dataset.append(tens)
+                self.dataset.append(tens)
 
     def __len__(self):
         return self.length

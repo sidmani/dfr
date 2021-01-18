@@ -26,17 +26,19 @@ class HParams:
     betas: Tuple[int, int] = (0.0, 0.9)
     latentSize: int = 256
     latentStd: float = 2.5
-    eikonal: float = 2.0
+    eikonal: float = 1.0
     r1Factor: float = 10.0
     omega0_first: float = 5.
     omega0_hidden: float = 5.
     sdfWidth: int = 256
     stages: Tuple[Stage, ...] = (
-        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sigma=8.),
-        Stage(start=4000, raycast=[16], batch=32, fade=2500, discChannels=384, sigma=2.),
-        Stage(start=7000, raycast=[32], batch=16, fade=2500, discChannels=384, sigma=1.),
-        # Stage(start=6000, raycast=[16], batch=32, fade=5000, discChannels=384, sigma=3.),
-        # Stage(start=20000, raycast=[32], batch=16, fade=5000, discChannels=384, sigma=1.5),
+        Stage(start=0, raycast=[8], batch=32, fade=0, discChannels=384, sigma=0.1),
+        Stage(start=4000, raycast=[16], batch=32, fade=2500, discChannels=384, sigma=0.03),
+        Stage(start=7000, raycast=[32], batch=16, fade=2500, discChannels=384, sigma=0.015),
+        Stage(start=15000, raycast=[32, 2], batch=16, fade=2500, discChannels=256, sigma=0.0075),
+        # Stage(start=6000, raycast=[16], batch=32, fade=5000, discChannels=384, sigma=0.03),
+        # Stage(start=20000, raycast=[32], batch=16, fade=5000, discChannels=384, sigma=0.015),
+        # Stage(start=35000, raycast=[32, 2], batch=16, fade=5000, discChannels=256, sigma=0.0075),
     )
 
     def __post_init__(self):

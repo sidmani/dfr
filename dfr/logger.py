@@ -21,9 +21,8 @@ class Logger:
             self.writeGenScale(data, idx)
 
     def writeScalars(self, data, idx):
-        if 'generator_loss' in data:
-            self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
-            self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)
+        self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
+        self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)
 
         self.logger.add_scalar('discriminator/fake', data['discriminator_fake'], global_step=idx)
         self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)
@@ -41,7 +40,6 @@ class Logger:
         self.logger.add_scalar('generator/film_scale', norm, global_step=idx)
 
     def writeImages(self, data, idx):
-        # log images every 50 iterations (every ~6 seconds on 64x64)
         fake = data['fake']
         real = data['real']
         self.logger.add_images('fake/collage', fake[:, :3], global_step=idx)

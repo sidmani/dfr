@@ -8,19 +8,19 @@ def illuminate(light, normals):
     return (dot + 1.0) / 2.0
 
 # take values masked to a circle and arrange them in a square image
-def unmask(values, sphereMask):
-    valueMap = torch.ones(*sphereMask.shape, values.shape[1], device=sphereMask.device)
-    valueMap[sphereMask] = values
+def unmask(values, mask):
+    valueMap = torch.ones(*mask.shape, values.shape[1], device=mask.device)
+    # have to cast manually, since AMP doesn't autocast index puts
+    valueMap[mask] = values.to(valueMap.dtype)
     return valueMap.permute(0, 3, 1, 2)
 
 # given SDF values, normals, and texture, construct an image
-def shade(data, light, sphereMask, sigma):
+def shade(data, light, sphereMask, sigma, debug=False):
     illum = illuminate(light, data.normals)
 
-    # TODO: weird that we need to cast manually, considering inside AMP context
-    valueMap = unmask(data.values.float(), sphereMask)
-    colorMap = unmask(data.textures.float(), sphereMask)
-    illumMap = unmask(illum.float(), sphereMask)
+    valueMap = unmask(data.values, sphereMask)
+    colorMap = unmask(data.textures, sphereMask)
+    illumMap = unmask(illum, sphereMask)
 
     # the illumination value isn't well defined outside the surface, and can mess up the gradients
     # so just set it to one. not clear if this affects discriminator.

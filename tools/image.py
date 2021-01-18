@@ -39,16 +39,16 @@ def main(args):
         real_full.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(original, ckpt, stage.raycast, sigma / original.shape[2])
+    sampled = sample_like(original, ckpt, stage.raycast, sigma)
     fake = sampled['full']
     criterion = torch.nn.BCEWithLogitsLoss()
 
-    disReal = dis(real_full, None).view(-1)
+    disReal = dis(real_full).view(-1)
     label = torch.full((real_full.shape[0],), 1.0, device=disReal.device)
     disLossReal = criterion(disReal, label)
 
     label = torch.full((real_full.shape[0],), 0.0, device=disReal.device)
-    disFake = dis(fake, None).view(-1)
+    disFake = dis(fake).view(-1)
     disLossFake = criterion(disFake, label)
 
     loss = disLossReal + disLossFake

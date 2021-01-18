@@ -42,7 +42,7 @@ def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
         real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(original, ckpt, stage.raycast, stage.sigma / original.shape[2])
+    sampled = sample_like(original, ckpt, stage.raycast, stage.sigma)
     fake = sampled['full']
     logData = {'fake': fake, 'real': real}
 

@@ -71,7 +71,7 @@ def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
 def sphereTrace(rays, origin, planes, latents, sdf, threshold, steps=16):
     minValues = 5.0 * torch.ones(rays.shape[0], device=rays.device)
     mask = torch.ones_like(minValues, dtype=torch.bool)
-    distance = planes[0].clone() + 2.0 / steps
+    distance = planes[0] + 2.0 / steps
     minDistances = distance.clone()
 
     # start from 1, because the initial critical points are the 0-idx

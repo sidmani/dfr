@@ -44,6 +44,7 @@ def evalSurface(data, sdf, gradScaler, threshold):
     # need epsilon in denominator for numerical stability
     unitNormals = normals / (normalLength + 1e-5)
 
+    # values are shifted so the threshold is at 0, and surface < 0
     return SurfaceData(values - threshold, textures, unitNormals, normalLength)
 
 def raycast(angles, scales, latents, sdf, gradScaler, sigma, threshold=5e-3):

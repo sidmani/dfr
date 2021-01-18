@@ -37,7 +37,6 @@ class Checkpoint:
             version = nextVersion(runDir)
 
         # get the latest epoch for the provided version
-        # self.loc = runDir / version
         if fork is None:
             self.loc = runDir / version
         else:

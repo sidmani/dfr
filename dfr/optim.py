@@ -56,7 +56,6 @@ def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
 
 def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
     fake = sampled['full']
-    fakeHalf = sampled['half'] if 'half' in sampled else None
 
     # save memory by not storing gradients for discriminator
     for p in dis.parameters():
@@ -71,7 +70,7 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
         # the discriminator has been updated so we have to run the forward pass again
         # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
         label = torch.full((fake.shape[0],), 1.0, device=fake.device)
-        output = dis(fake, fakeHalf).view(-1)
+        output = dis(fake).view(-1)
         genLoss = criterion(output, label) + eikonal * eikonalLoss
 
     # graph: loss -> discriminator -> generator
