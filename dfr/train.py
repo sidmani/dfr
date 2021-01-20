@@ -1,14 +1,11 @@
 import torch
 from .raycast import sample_like
-from .dataset import ImageDataset, makeDataloader
 from tqdm import tqdm
 from .optim import stepDiscriminator, stepGenerator
 from .flags import Flags
-from .image import resample
 
-def train(datapath, device, steps, ckpt, logger):
+def train(dataset, device, steps, ckpt, logger):
     stages = ckpt.hparams.stages
-    dataset = ImageDataset(datapath)
 
     for i in range(ckpt.startStage, len(stages)):
         stage = stages[i]
@@ -23,27 +20,26 @@ def train(datapath, device, steps, ckpt, logger):
             endEpoch = steps
 
         print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
-        dataloader = makeDataloader(stage.batch, dataset, device)
         for epoch in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
             # fade in the new discriminator layer as necessary
             ckpt.dis.setAlpha(stage.evalAlpha(epoch))
-            loop(dataloader, stages, i, ckpt, logger, epoch)
+            loop(dataset, device, stages, i, ckpt, logger, epoch)
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
-def loop(dataloader, stages, stageIdx, ckpt, logger, epoch):
+def loop(dataset, device, stages, stageIdx, ckpt, logger, epoch):
     stage = stages[stageIdx]
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
     with torch.no_grad():
-        original = next(dataloader)
-        real = resample(original, stage.imageSize)
+        real = dataset.sample(stage.batch, res=stage.imageSize).to(device)
+        real = real[:, 3, :, :].unsqueeze(1)
         real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(original, ckpt, stage.raycast, stage.sigma)
-    fake = sampled['full']
+    sampled = sample_like(real, ckpt, stage.raycast, stage.sigma)
+    fake = sampled['full'][:, 3, :, :].unsqueeze(1)
     logData = {'fake': fake, 'real': real}
 
     disData = stepDiscriminator(real, fake, dis, disOpt, gradScaler, hparams.r1Factor)

@@ -1,13 +1,19 @@
 import torch
-from itertools import repeat
-from torch.utils.data.dataset import Dataset
+import torch.nn.functional as F
+from numpy.random import default_rng
 from torchvision import transforms
-from torch.utils.data import DataLoader
 from PIL import Image
 from tqdm import tqdm
 from .flags import Flags
 
-class ImageDataset(Dataset):
+# threshold an image with alpha into solid and transparent portions
+def solidify(image, alphaChannel=3, threshold=0.5):
+    solid = (image[:, alphaChannel] > threshold).float()
+    image[:, alphaChannel] = solid
+    image *= solid.unsqueeze(1)
+    return image
+
+class ImageDataset:
     def __init__(self, dataPath):
         super().__init__()
         self.dataset = []
@@ -17,6 +23,8 @@ class ImageDataset(Dataset):
 
         print(f"Loading entire dataset into CPU memory...")
         toTensor = transforms.ToTensor()
+        self.rng = default_rng()
+
         for obj in tqdm(objects):
             with torch.no_grad():
                 img = Image.open(obj)
@@ -25,25 +33,22 @@ class ImageDataset(Dataset):
                 # but we don't support that, so make them solid
                 # solid = tens[3] > 0.5
                 # tens[3, solid] = 1.0
-
                 self.dataset.append(tens)
 
-    def __len__(self):
-        return self.length
+    def sample(self, batchSize, res=None, preproc=True):
+        idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)
+        batch = []
+        for i in range(batchSize):
+            batch.append(self.dataset[idxs[i]])
 
-    def __getitem__(self, idx):
-        return self.dataset[idx]
+        with torch.no_grad():
+            batchTensor = torch.stack(batch)
+            if res is not None:
+                # resize the images with bilinear interpolate
+                batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
 
-# infinite dataloader
-# https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567
-def iterData(dataloader, device):
-    for loader in repeat(dataloader):
-        for data in loader:
-            yield data.to(device)
+            if preproc:
+                # drop all translucent portions
+                batchTensor = solidify(batchTensor)
 
-def makeDataloader(batchSize, dataset, device):
-    return iterData(DataLoader(dataset,
-            batch_size=batchSize,
-            pin_memory=True,
-            shuffle=True,
-            num_workers=0 if Flags.profile else 1), device=device)
+        return batchTensor

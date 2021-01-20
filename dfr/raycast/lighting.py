@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from ..image import blur
 
 # compute an illumination map based on the angle between the light and the surface normal
 def illuminate(light, normals):

@@ -1,10 +1,10 @@
 import torch
 from argparse import ArgumentParser
 import pprint
-import numpy as np
 from pathlib import Path
 from .train import train
 from .ckpt import Checkpoint
+from .dataset import ImageDataset
 from .logger import Logger
 from .flags import Flags
 
@@ -89,9 +89,11 @@ def main(args):
     print('Hyperparameters')
     pp.pprint(ckpt.hparams.__dict__)
 
-    # selects best convolution algorithm; yields ~1.5x overall speedup
+    # automatically selects best convolution algorithm; yields ~1.5x overall speedup
     torch.backends.cudnn.benchmark = True
-    train(args.data, device, steps=args.steps, ckpt=ckpt, logger=logger)
+
+    dataset = ImageDataset(args.data)
+    train(dataset, device, steps=args.steps, ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
