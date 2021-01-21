@@ -35,7 +35,7 @@ class ImageDataset:
                 # tens[3, solid] = 1.0
                 self.dataset.append(tens)
 
-    def sample(self, batchSize, res=None, preproc=True):
+    def sample(self, batchSize, res=None):
         idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)
         batch = []
         for i in range(batchSize):
@@ -47,8 +47,5 @@ class ImageDataset:
                 # resize the images with bilinear interpolate
                 batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
 
-            if preproc:
-                # drop all translucent portions
-                batchTensor = solidify(batchTensor)
 
         return batchTensor

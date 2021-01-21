@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from dfr.dataset import ImageDataset, makeDataloader
+from dfr.dataset import ImageDataset, solidify
 from pathlib import Path
 import matplotlib.pyplot as plt
 from torchvision import transforms
@@ -8,10 +8,11 @@ from torchvision.transforms.functional_tensor import gaussian_blur
 from dfr.image import blur
 
 dataset = ImageDataset(Path('../dataset'))
-idx = np.random.randint(0, len(dataset))
-item = dataset[idx]
+# idx = np.random.randint(0, len(dataset))
+# item = dataset[idx]
+# item = dataset.sample(1)
 
-item = blur(item.unsqueeze(0), 1.).squeeze(0)
+# item = blur(item.unsqueeze(0), 1.).squeeze(0)
 
 
 # img_64 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(64, 64), mode='nearest')
@@ -24,10 +25,15 @@ item = blur(item.unsqueeze(0), 1.).squeeze(0)
 # axs[2].imshow(img_64_up.permute(1, 2, 0).detach().numpy())
 # axs[3].imshow(diff.permute(1, 2, 0).detach().numpy())
 
-img_128 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(128, 128), mode='bilinear').squeeze(0)
-img_64 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(64, 64), mode='bilinear').squeeze(0)
-img_32 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(32, 32), mode='bilinear').squeeze(0)
-img_16 = torch.nn.functional.interpolate(item.unsqueeze(0), size=(16, 16), mode='bilinear').squeeze(0)
+# img_128 = torch.nn.functional.interpolate(item, size=(128, 128), mode='bilinear')
+# img_128 = solidify(img_128, threshold=0.5).squeeze(0)
+# img_64 = torch.nn.functional.interpolate(item, size=(64, 64), mode='bilinear').squeeze(0)
+# img_32 = torch.nn.functional.interpolate(item, size=(32, 32), mode='bilinear').squeeze(0)
+# img_16 = torch.nn.functional.interpolate(item, size=(16, 16), mode='bilinear').squeeze(0)
+img_128 = dataset.sample(1, 128)[0]
+img_64 = dataset.sample(1, 64)[0]
+img_32 = dataset.sample(1, 32)[0]
+img_16 = dataset.sample(1, 16)[0]
 img_128 = img_128.permute(1, 2, 0).detach().numpy()
 img_64 = img_64.permute(1, 2, 0).detach().numpy()
 img_32 = img_32.permute(1, 2, 0).detach().numpy()

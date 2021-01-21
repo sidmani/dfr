@@ -49,7 +49,8 @@ def main(args):
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
-    out = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sigma)['full']
+    ret = raycast((phis, thetas), imgSize, latents, sdf, gradScaler, args.sigma)
+    out = ret['full']
 
     print(f"{count} SDF queries.")
     obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
@@ -58,13 +59,10 @@ def main(args):
     sil2 = obj2[:, :, 3]
 
     fig, axs = plt.subplots(4, 2)
-    axs[0, 0].imshow(obj1[:, :, :])
-    axs[0, 1].imshow(obj2[:, :, :])
+    axs[0, 0].imshow(obj1[:, :, :3])
+    axs[0, 1].imshow(obj2[:, :, :3])
     axs[1, 0].imshow(sil1)
     axs[1, 1].imshow(sil2)
-
-    axs[2, 0].plot(obj1[imgSize // 2, : , 3])
-    axs[2, 1].plot(obj2[imgSize // 2, : , 3])
 
     plt.show()
 

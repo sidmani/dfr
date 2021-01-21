@@ -55,7 +55,8 @@ def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
     return logData
 
 def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
-    fake = sampled['full']
+    # fake = sampled['full']
+    fake = sampled['full'][:, 3, :, :].unsqueeze(1)
 
     # save memory by not storing gradients for discriminator
     for p in dis.parameters():

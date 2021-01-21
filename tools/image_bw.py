@@ -5,7 +5,7 @@ import scipy
 import scipy.ndimage
 from dfr.ckpt import Checkpoint
 from dfr.__main__ import setArgs
-from dfr.dataset import ImageDataset, makeDataloader
+from dfr.dataset import ImageDataset
 from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
@@ -19,28 +19,30 @@ def main(args):
                       version=args.ckpt,
                       epoch=args.epoch,
                       device=device)
-    count = 12
+    count = 24
     hp = ckpt.hparams
     stage = hp.stages[ckpt.startStage]
     size = stage.imageSize
     dataset = ImageDataset(Path('../dataset'))
-    dataloader = makeDataloader(count, dataset, device)
 
     stageIdx = ckpt.startStage
     stages = hp.stages
     dis = ckpt.dis
-    dis.setAlpha(stage.evalAlpha(ckpt.startEpoch))
+    # dis.setAlpha(stage.evalAlpha(ckpt.startEpoch))
+    dis.setAlpha(1.)
 
     sigma = stage.sigma
 
     with torch.no_grad():
-        original = next(dataloader)
-        real_full = resample(original, stage.imageSize)
+        real_full = dataset.sample(count, stage.imageSize).to(device)
+        # original = next(dataloader)
+        # real_full = resample(original, stage.imageSize)
+        real_full = real_full[:, 3, :, :].unsqueeze(1)
         real_full.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(original, ckpt, stage.raycast, sigma)
-    fake = sampled['full']
+    sampled = sample_like(real_full, ckpt, stage.raycast, sigma)
+    fake = sampled['full'][:, 3, :, :].unsqueeze(1)
     criterion = torch.nn.BCEWithLogitsLoss()
 
     disReal = dis(real_full).view(-1)
@@ -80,13 +82,9 @@ def main(args):
         fft = scipy.fft.fft2(img_32, axes=[0, 1])
         fft_shifted = scipy.fft.fftshift(fft)
         fft_mag = np.log10(np.linalg.norm(fft_shifted, axis=2))
-        if not args.dataset:
-            illum = sampled['illum'][i][0].detach().cpu().numpy()
-        else:
-            illum = None
-        items.append({'32': img_32, 'grad': grad_32, 'fft':fft_mag, 'illum': illum, 'score': scores[i].item()})
+        items.append({'32': img_32, 'grad': grad_32, 'fft':fft_mag, 'score': scores[i].item()})
 
-    fig, axs = plt.subplots(6, count)
+    fig, axs = plt.subplots(6, 6)
 
     items.sort(key=lambda x: x['score'])
     axs[0, 0].set_ylabel('image_rgb', size='large')
@@ -95,13 +93,13 @@ def main(args):
     axs[3, 0].set_ylabel('disc_grad_rgb', size='large')
     axs[4, 0].set_ylabel(f'disc_grad_ch{args.channel}', size='large')
     axs[5, 0].set_ylabel('fft', size='large')
-    for idx, item in enumerate(items):
-        axs[0, idx].imshow(item['32'][:, :, :3])
-        axs[1, idx].imshow(item['32'][:, :, args.channel])
-        if not args.dataset:
-            axs[2, idx].imshow(item['illum'])
-        axs[3, idx].imshow((1 + 1000 * item['grad'][:, :, :3]) / 2.)
-        axs[4, idx].imshow(item['grad'][:, :, args.channel])
+    for idx, item in enumerate(items[:6]):
+        # axs[0, idx].imshow(item['32'][:, :, :3])
+        axs[1, idx].imshow(item['32'])
+        # if not args.dataset:
+        #     axs[2, idx].imshow(item['illum'])
+        # axs[3, idx].imshow((1 + 1000 * item['grad'][:, :, :3]) / 2.)
+        axs[4, idx].imshow(item['grad'])
         axs[5, idx].imshow(item['fft'])
         axs[0, idx].title.set_text(item['score'])
 

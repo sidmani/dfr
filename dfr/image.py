@@ -10,6 +10,9 @@ def blur(img, sigma, kernel=None):
         if kernel % 2 == 0:
             kernel += 1
 
+        if kernel == 1:
+            raise Exception('Kernel is 1! Are you sure?')
+
     return gaussian_blur2d(img, (kernel, kernel), (sigma, sigma))
 
 def resample(img, size):

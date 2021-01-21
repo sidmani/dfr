@@ -1,6 +1,8 @@
 import torch
 from pathlib import Path
 from argparse import ArgumentParser
+from PIL import Image
+from torchvision.transforms.functional import resize
 from torch.cuda.amp import GradScaler
 import numpy as np
 import matplotlib.pyplot as plt
@@ -55,15 +57,15 @@ def main():
         ret = ret[0].permute(1, 2, 0).cpu().detach().numpy()
         axs[0, i].imshow(ret)
         axs[1, i].imshow(ret[:, :, 3])
-        axs[2, i].plot(ret[np.prod(res) // 2, :, 3])
 
-    for i, (res, sigma) in enumerate(zip(resolutions, sigmas)):
         size = np.prod(res)
-        out = torch.nn.functional.interpolate(real, size=(size, size), mode='bilinear')[0]
+        out = resize(real, size=(size, size), interpolation=Image.BILINEAR)[0]
+        # out = torch.nn.functional.interpolate(real, size=(size, size), mode='nearest')[0]
         out = out.permute(1, 2, 0).cpu().detach().numpy()
         axs[3, i].imshow(out)
         axs[4, i].imshow(out[:, :, 3])
-        axs[5, i].plot(out[size// 2, :, 3])
+
+        axs[2, i].imshow(ret[:, :, 3] - out[:, :, 3])
 
     plt.show()
 
