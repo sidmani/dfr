@@ -32,6 +32,7 @@ class ImageDataset:
                 # solid = tens[3] > 0.5
                 # tens[3, solid] = 1.0
                 self.dataset.append(toTensor(img))
+                img.close()
 
     def sample(self, batchSize, res=None):
         idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)

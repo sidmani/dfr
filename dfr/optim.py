@@ -19,24 +19,19 @@ def R1(real, disReal, gradScaler):
         return (grad[0] ** 2.).sum(dim=[1, 2, 3]).mean()
 
 def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
-    # the generator's not gonna be updated, so detach it from the grad graph
-    # also possible that generator has been modified in-place, so can't backprop through it
-    # detach() sets requires_grad=False, so reset it to True
-    # need to clone so that in-place ops in CNN are legal
-    detachedFake = fake.detach().clone().requires_grad_()
-
     disOpt.zero_grad(set_to_none=True)
     real.requires_grad = True
     with autocast(enabled=Flags.AMP):
         disReal = dis(real).view(-1)
-        label = torch.full((real.shape[0],), 1.0, device=disReal.device)
+        label = torch.full((real.shape[0],), 1., device=disReal.device)
         disLossReal = criterion(disReal, label)
 
-        disFake = dis(detachedFake).view(-1)
-        label = torch.full((real.shape[0],), 0.0, device=disReal.device)
+        # the generator's not gonna be updated, so detach it from the grad graph
+        disFake = dis(fake.detach()).view(-1)
+        label = torch.full((real.shape[0],), 0., device=disReal.device)
         disLossFake = criterion(disFake, label)
 
-    # note that we need to apply sigmoid, since BCEWithLogitsLoss does that internally
+    # apply sigmoid to discriminator output, since BCEWithLogitsLoss does that internally
     penalty = r1Factor * R1(real, torch.sigmoid(disReal), gradScaler)
 
     gradScaler.scale(disLossReal + disLossFake + penalty).backward()

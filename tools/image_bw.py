@@ -10,8 +10,7 @@ from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
 from torchvision import transforms
-from dfr.raycast import sample_like
-from dfr.image import blur, resample
+from dfr.raycast import sample
 
 def main(args):
     device = torch.device('cuda')
@@ -28,20 +27,17 @@ def main(args):
     stageIdx = ckpt.startStage
     stages = hp.stages
     dis = ckpt.dis
-    # dis.setAlpha(stage.evalAlpha(ckpt.startEpoch))
-    dis.setAlpha(1.)
+    dis.setAlpha(stage.evalAlpha(ckpt.startEpoch))
 
     sigma = stage.sigma
 
     with torch.no_grad():
         real_full = dataset.sample(count, stage.imageSize).to(device)
-        # original = next(dataloader)
-        # real_full = resample(original, stage.imageSize)
         real_full = real_full[:, 3, :, :].unsqueeze(1)
         real_full.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(real_full, ckpt, stage.raycast, sigma)
+    sampled = sample(count, device, ckpt, stage.raycast, sigma)
     fake = sampled['full'][:, 3, :, :].unsqueeze(1)
     criterion = torch.nn.BCEWithLogitsLoss()
 
@@ -79,10 +75,25 @@ def main(args):
         img_32 = target[i].permute(1, 2, 0).detach().cpu().numpy()
 
         grad_32 = torch.clamp(grad[0][i], min=-1., max=1.).permute(1, 2, 0).detach().cpu().numpy()
-        fft = scipy.fft.fft2(img_32, axes=[0, 1])
-        fft_shifted = scipy.fft.fftshift(fft)
-        fft_mag = np.log10(np.linalg.norm(fft_shifted, axis=2))
-        items.append({'32': img_32, 'grad': grad_32, 'fft':fft_mag, 'score': scores[i].item()})
+        # fft = scipy.fft.fft2(img_32, axes=[0, 1])
+        # fft_shifted = scipy.fft.fftshift(fft)
+        # fft_mag = np.log10(np.linalg.norm(fft_shifted, axis=2))
+        items.append({'32': img_32, 'grad': grad_32, 'score': scores[i].item()})
+
+    del grad
+    del loss
+    del disFake
+    del disReal
+    del disLossFake
+    del disLossReal
+    del sampled
+    del fake
+    del label
+    del ckpt
+    del inputs
+    del target
+    del scores
+    torch.cuda.empty_cache()
 
     fig, axs = plt.subplots(6, 6)
 
@@ -92,7 +103,7 @@ def main(args):
     axs[2, 0].set_ylabel(f'illum', size='large')
     axs[3, 0].set_ylabel('disc_grad_rgb', size='large')
     axs[4, 0].set_ylabel(f'disc_grad_ch{args.channel}', size='large')
-    axs[5, 0].set_ylabel('fft', size='large')
+    # axs[5, 0].set_ylabel('fft', size='large')
     for idx, item in enumerate(items[:6]):
         # axs[0, idx].imshow(item['32'][:, :, :3])
         axs[1, idx].imshow(item['32'])
@@ -100,7 +111,7 @@ def main(args):
         #     axs[2, idx].imshow(item['illum'])
         # axs[3, idx].imshow((1 + 1000 * item['grad'][:, :, :3]) / 2.)
         axs[4, idx].imshow(item['grad'])
-        axs[5, idx].imshow(item['fft'])
+        # axs[5, idx].imshow(item['fft'])
         axs[0, idx].title.set_text(item['score'])
 
     plt.show()

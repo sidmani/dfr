@@ -1,6 +1,5 @@
 from pathlib import Path
 from argparse import ArgumentParser
-from dfr.ckpt import Checkpoint
 from PIL import Image
 from tqdm import tqdm
 import numpy as np
@@ -21,12 +20,20 @@ if __name__ == "__main__":
         help='The output directory'
     )
     parser.add_argument(
-        '--resize',
-        '-r',
-        dest='resize',
-        default=None,
-        help='Resize to a new resolution'
+        '--random-count',
+        dest='count',
+        default=1,
+        help='# of views to select (max 24)',
+        type=int,
     )
+    # parser.add_argument(
+    #     '--resize',
+    #     '-r',
+    #     dest='resize',
+    #     default=None,
+    #     help='Resize to a new resolution',
+    #     type=int,
+    # )
     args = parser.parse_args()
 
     out = Path(args.output)
@@ -36,13 +43,16 @@ if __name__ == "__main__":
     objects = list(dataPath.glob('*'))
     imgsPerFolder = 24
 
-    for folder in tqdm(objects):
-        idx = np.random.randint(0, imgsPerFolder)
-        imgPath = Path(folder / 'rendering' / f'{idx:02d}.png')
-        dest = out / f'{folder.name}.png'
+    rng = np.random.default_rng()
 
-        img = Image.open(imgPath)
-        if args.resize is not None:
-            s = int(args.resize)
-            img = img.resize((s, s))
-        img.save(dest)
+    for folder in tqdm(objects):
+        # idxs = np.random.randint(0, imgsPerFolder)
+        idxs = rng.choice(imgsPerFolder, size=args.count)
+        for i in range(args.count):
+            imgPath = Path(folder / 'rendering' / f'{idxs[i]:02d}.png')
+            dest = out / f'{folder.name}_{idxs[i]}.png'
+
+            img = Image.open(imgPath)
+            # if args.resize is not None:
+            #     img = img.resize((args.resize, args.resize))
+            img.save(dest)
