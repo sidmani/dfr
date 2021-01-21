@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 # create rotation matrices from camera angles (phi, theta)
 def rotateAxes(angles):
@@ -18,6 +17,7 @@ def rotateAxes(angles):
 
 # construct a grid of rays viewing the origin from the camera
 def rayGrid(axes, px, D):
+    # XXX: affects output
     edge = 1. - 1 / px
 
     xSpace = torch.linspace(-edge, edge, steps=px, device=axes.device).repeat(px, 1)[None, :, :, None]
@@ -27,13 +27,13 @@ def rayGrid(axes, px, D):
     z = axes[:, 2][:, None, None, :]
 
     rays = xSpace * x + ySpace * y - z * D
-    norm = rays.reshape(-1, 3).norm(dim=1).view(-1, px, px, 1)
-    return rays / norm
+    return rays / rays.norm(dim=3, keepdim=True)
 
 # find the near and far intersections of each ray with the unit sphere
-def computePlanes(rays, axes, cameraD, size):
-    z = axes[:, 2][:, None, None, :]
-    center = cameraD * (-z.unsqueeze(3) @ rays.unsqueeze(4)).view(-1, size, size)
-    # clamp to min=0, because rays that don't intersect the sphere have complex roots
-    delta = (center ** 2 - cameraD ** 2 + 1).clamp(min=0.0).sqrt()
+# the solution is a quadratic in the distance along the ray with complex roots iff the ray misses
+def computePlanes(rays, axes, cameraD):
+    z = axes[:, 2][:, None, None, None, :]
+    center = cameraD * (-z @ rays.unsqueeze(4)).flatten(2)
+    # clamp to min=0 to ignore complex roots
+    delta = (center ** 2 - cameraD ** 2 + 1).clamp(min=0.).sqrt()
     return center - delta, center + delta, delta > 1e-5

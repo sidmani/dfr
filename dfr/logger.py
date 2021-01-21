@@ -11,14 +11,14 @@ class Logger:
     def log(self, data, idx):
         self.writeScalars(data, idx)
 
-        if idx % 50 == 0:
+        if idx % 100 == 0:
             self.writeImages(data, idx)
 
         # if idx % 200 == 0:
         #     self.writeFixedSamples(idx)
 
-        if idx % 10 == 0:
-            self.writeGenScale(data, idx)
+        # if idx % 10 == 0:
+        #     self.writeGenScale(data, idx)
 
     def writeScalars(self, data, idx):
         self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
@@ -32,12 +32,12 @@ class Logger:
 
         self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
 
-    def writeGenScale(self, data, idx):
-        z = torch.normal(0.0, self.ckpt.hparams.latentStd, (12, self.ckpt.hparams.latentSize), device=self.ckpt.examples.device)
-        film = self.ckpt.gen.film(z)
-        split = torch.split(film, self.ckpt.hparams.sdfWidth, dim=1)
-        norm = (split[0].norm(dim=1) + split[1].norm(dim=1)).mean().detach()
-        self.logger.add_scalar('generator/film_scale', norm, global_step=idx)
+    # def writeGenScale(self, data, idx):
+    #     z = torch.normal(0.0, self.ckpt.hparams.latentStd, (12, self.ckpt.hparams.latentSize), device=self.ckpt.examples.device)
+    #     film = self.ckpt.gen.film(z)
+    #     split = torch.split(film, self.ckpt.hparams.sdfWidth, dim=1)
+    #     norm = (split[0].norm(dim=1) + split[1].norm(dim=1)).mean().detach()
+    #     self.logger.add_scalar('generator/film_scale', norm, global_step=idx)
 
     def writeImages(self, data, idx):
         fake = data['fake'].clamp(0, 1)

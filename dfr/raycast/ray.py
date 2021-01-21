@@ -16,8 +16,7 @@ def upsample(t, scale):
 def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
     cameraD = 1.0 / np.tan(fov / 2.0)
 
-    batch = axes.shape[0]
-    terminal = torch.zeros(batch, 1, 1, 1, device=axes.device)
+    terminal = torch.zeros(axes.shape[0], 1, 1, 1, device=axes.device)
     rayMask = torch.ones_like(terminal, dtype=torch.bool).squeeze(3)
     origin = cameraD * axes[:, 2][:, None, None, :]
     latents = latents[:, None, None, :]
@@ -37,12 +36,10 @@ def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
 
         size *= scale
         rays = rayGrid(axes, size, cameraD)
-        near, far, sphereMask = computePlanes(rays, axes, cameraD, size)
+        near, far, sphereMask = computePlanes(rays, axes, cameraD)
         if idx == 0:
             smallestMask = sphereMask
 
-        near = near.expand(batch, -1, -1)
-        far = far.expand(batch, -1, -1)
         terminal = upsample(terminal, scale)
         rayMask = upsample(rayMask, scale)
         expandedLatents = latents.expand(-1, size, size, -1)
@@ -62,7 +59,7 @@ def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
         terminal[rayMask] = distances.unsqueeze(1)
 
     # use the lowest-resolution mask, because the high res mask includes unsampled rays
-    sphereMask = upsample(smallestMask, size // scales[0]).expand(batch, -1, -1)
+    sphereMask = upsample(smallestMask, size // scales[0])
     points = (origin + terminal * rays)[sphereMask]
     points.requires_grad = True
     return SampleData(points, expandedLatents, sphereMask)
@@ -87,10 +84,9 @@ def sphereTrace(rays, origin, planes, latents, sdf, threshold, steps=16):
         # evaluate the targets
         with autocast(enabled=Flags.AMP):
             values = sdf(targets, latents, mask, geomOnly=True).squeeze(1).type(torch.float)
-
         del targets
 
-        # TODO: this is the bottleneck
+        # TODO: this is a bottleneck
         # Boolean indexing produces a variably-sized result, which causes an
         # expensive CPU-GPU sync. But all of these masks work together to limit the
         # number of SDF queries, which is also very expensive.
@@ -105,6 +101,8 @@ def sphereTrace(rays, origin, planes, latents, sdf, threshold, steps=16):
 
         # terminate all rays that intersect the surface (negated)
         intersectMask = values > threshold
+
+        # sphere trace
         distance[mask] += values
 
         # terminate rays that exit the unit sphere on the next step (again negated)

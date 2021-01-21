@@ -1,9 +1,8 @@
 import torch
-import torch.nn as nn
 from torch.cuda.amp import autocast
 from .flags import Flags
 
-criterion = nn.BCEWithLogitsLoss()
+criterion = torch.nn.BCEWithLogitsLoss()
 
 # R1 gradient penalty (Mescheder et al., 2018)
 def R1(real, disReal, gradScaler):

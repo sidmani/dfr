@@ -9,11 +9,6 @@ from ..flags import Flags
 
 SurfaceData = namedtuple('SurfaceData', ['values', 'textures', 'normals', 'normalLength'])
 
-def sample_like(other, ckpt, scales, sigma):
-    batchSize = other.shape[0]
-    device = other.device
-    return sample(other.shape[0], other.device, ckpt, scales, sigma)
-
 def sample(batchSize, device, ckpt, scales, sigma):
     # elevation is between 20 and 30 deg (per dataset)
     deg20 = 20 * np.pi / 180
@@ -29,15 +24,14 @@ def evalSurface(data, sdf, gradScaler, threshold):
     with autocast(enabled=Flags.AMP):
         # sample the critical points with autograd enabled
         # TODO: latent masking in sdf forward doesn't need grad
+        # TODO: latents are recomputed even though there are repeats
         values, textures = sdf(data.points, data.latents, data.mask)
 
     # compute normals
     scaledNormals = torch.autograd.grad(outputs=gradScaler.scale(values),
                 inputs=data.points,
                 grad_outputs=torch.ones_like(values),
-                create_graph=True,
-                retain_graph=True,
-                only_inputs=True)[0]
+                create_graph=True)[0]
     normals = scaledNormals / gradScaler.get_scale()
 
     normalLength = normals.norm(dim=1, keepdim=True)

@@ -4,14 +4,13 @@ from numpy.random import default_rng
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
-from .flags import Flags
 
 # threshold an image with alpha into solid and transparent portions
-def solidify(image, alphaChannel=3, threshold=0.5):
-    solid = (image[:, alphaChannel] > threshold).float()
-    image[:, alphaChannel] = solid
-    image *= solid.unsqueeze(1)
-    return image
+# def solidify(image, alphaChannel=3, threshold=0.5):
+#     solid = (image[:, alphaChannel] > threshold).float()
+#     image[:, alphaChannel] = solid
+#     image *= solid.unsqueeze(1)
+#     return image
 
 class ImageDataset:
     def __init__(self, dataPath):
@@ -28,12 +27,11 @@ class ImageDataset:
         for obj in tqdm(objects):
             with torch.no_grad():
                 img = Image.open(obj)
-                tens = toTensor(img)
                 # some of the images have partially transparent portions (alpha > 0.5)
                 # but we don't support that, so make them solid
                 # solid = tens[3] > 0.5
                 # tens[3, solid] = 1.0
-                self.dataset.append(tens)
+                self.dataset.append(toTensor(img))
 
     def sample(self, batchSize, res=None):
         idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)
@@ -44,8 +42,7 @@ class ImageDataset:
         with torch.no_grad():
             batchTensor = torch.stack(batch)
             if res is not None:
-                # resize the images with bilinear interpolate
+                # resize the images with bilinear interpolation
                 batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
-
 
         return batchTensor

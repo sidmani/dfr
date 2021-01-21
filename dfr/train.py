@@ -1,5 +1,5 @@
 import torch
-from .raycast import sample_like
+from .raycast import sample
 from tqdm import tqdm
 from .optim import stepDiscriminator, stepGenerator
 from .flags import Flags
@@ -38,7 +38,7 @@ def loop(dataset, device, stages, stageIdx, ckpt, logger, epoch):
         real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample_like(real, ckpt, stage.raycast, stage.sigma)
+    sampled = sample(stage.batch, device, ckpt, stage.raycast, stage.sigma)
     fake = sampled['full'][:, 3, :, :].unsqueeze(1)
     logData = {'fake': fake, 'real': real}
 

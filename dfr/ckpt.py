@@ -55,7 +55,7 @@ class Checkpoint:
                 print('Warning: overriding checkpoint hparams. Proceed at your own risk...')
             else:
                 self.hparams = ckpt['hparams']
-            self.examples = ckpt['examples']
+            # self.examples = ckpt['examples']
             self.startEpoch = epoch + 1
             for stageIdx, stage in enumerate(self.hparams.stages):
                 if self.startEpoch >= stage.start:
@@ -63,11 +63,11 @@ class Checkpoint:
         else:
             ckpt = None
             self.hparams = HParams()
-            self.examples = torch.normal(
-                    mean=0.0,
-                    std=1.0,
-                    size=(3, self.hparams.latentSize),
-                    device=device)
+            # self.examples = torch.normal(
+            #         mean=0.0,
+            #         std=1.0,
+            #         size=(3, self.hparams.latentSize),
+            #         device=device)
             self.startEpoch = 0
 
         self.gen = SDFNetwork(self.hparams).to(device)
@@ -114,5 +114,5 @@ class Checkpoint:
             'gen_opt': self.genOpt.state_dict(),
             'dis_opt': self.disOpt.state_dict(),
             'gradScaler': self.gradScaler.state_dict(),
-            'examples': self.examples,
+            # 'examples': self.examples,
             }, self.loc / f"e{epoch}.pt")

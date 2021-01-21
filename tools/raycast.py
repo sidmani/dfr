@@ -49,7 +49,7 @@ def main(args):
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
-    ret = raycast((phis, thetas), imgSize, latents, sdf, gradScaler, args.sigma)
+    ret = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sigma)
     out = ret['full']
 
     print(f"{count} SDF queries.")

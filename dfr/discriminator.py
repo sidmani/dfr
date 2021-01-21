@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from tools.stats import tensor_stats
 
 # Progressive growing discriminator, based on pi-GAN architecture
 # Possible improvements:
