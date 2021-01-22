@@ -1,9 +1,11 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
 from numpy.random import default_rng
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
+from .image import blur
 
 # threshold an image with alpha into solid and transparent portions
 # def solidify(image, alphaChannel=3, threshold=0.5):
@@ -20,7 +22,7 @@ class ImageDataset:
         objects = list(dataPath.glob('*'))
         self.length = len(objects)
 
-        print(f"Loading entire dataset into CPU memory...")
+        print("Loading entire dataset into CPU memory...")
         toTensor = transforms.ToTensor()
         self.rng = default_rng()
 
@@ -45,5 +47,6 @@ class ImageDataset:
             if res is not None:
                 # resize the images with bilinear interpolation
                 batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
+                batchTensor = blur(batchTensor, 0.05 * res / 2)
 
         return batchTensor

@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from ..image import blur
 
 # compute an illumination map based on the angle between the light and the surface normal
 # def illuminate(light, normals):
@@ -30,6 +31,7 @@ def shade(data, light, sphereMask, sigma):
     fuzz = (1 - torch.erf(valueMap / (np.sqrt(2) * sigma * 2)))
     surface = torch.threshold((1 - valueMap), 1, 0).clamp(0, 1)
     opacity = fuzz * (1 - surfaceMask) + surface * surfaceMask
+    opacity = blur(opacity, 0.05 * sphereMask.shape[2] / 2)
     # else:
     #     opacity = torch.threshold((1 - valueMap), 1, 0).clamp(0, 1)
 
