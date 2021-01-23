@@ -1,5 +1,3 @@
-# query the generator n times, and save the output images
-
 import torch
 from torchvision.utils import save_image
 import numpy as np

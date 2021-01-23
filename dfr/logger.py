@@ -33,11 +33,11 @@ class Logger:
     def writeImages(self, data, idx):
         fake = data['fake'].clamp(0, 1)
         real = data['real']
-        self.logger.add_images('fake/collage', fake, dataformats='NCHW', global_step=idx)
-        # self.logger.add_image('fake/closeup', fake[0][:3], global_step=idx)
-        self.logger.add_image('fake/silhouette', fake[0].squeeze(0), dataformats='HW', global_step=idx)
-        # self.logger.add_image('real/real', real[0][:3], global_step=idx)
-        self.logger.add_image('real/silhouette', real[0].squeeze(0), dataformats='HW', global_step=idx)
+        self.logger.add_images('fake/collage', fake[:, :3], global_step=idx)
+        self.logger.add_image('fake/closeup', fake[0, :3], global_step=idx)
+        self.logger.add_image('fake/silhouette', fake[0, 3], dataformats='HW', global_step=idx)
+        self.logger.add_image('real/real', real[0, :3], global_step=idx)
+        self.logger.add_image('real/silhouette', real[0, 3], dataformats='HW', global_step=idx)
 
     # def writeFixedSamples(self, idx):
     #     device = self.ckpt.examples.device

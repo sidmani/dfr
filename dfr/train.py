@@ -40,12 +40,13 @@ def loop(dataset, device, stages, stageIdx, ckpt, logger, epoch):
 
     with torch.no_grad():
         real = dataset.sample(stage.batch, res=stage.imageSize, sigma=sigma).to(device)
-        real = real[:, 3, :, :].unsqueeze(1)
+        # real = real[:, 3, :, :].unsqueeze(1)
         real.requires_grad = True
 
     # sample the generator for fake images
     sampled = sample(stage.batch, device, ckpt, stage.raycast, sigma, wide=stageIdx == 0)
-    fake = sampled['full'][:, 3, :, :].unsqueeze(1)
+    fake = sampled['full']
+    # fake = sampled['full'][:, 3, :, :].unsqueeze(1)
     logData = {'fake': fake, 'real': real, 'sigma': sigma}
 
     disData = stepDiscriminator(real, fake, dis, disOpt, gradScaler, hparams.r1Factor)

@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from dfr.dataset import ImageDataset, solidify
+from dfr.dataset import ImageDataset
 from pathlib import Path
 import matplotlib.pyplot as plt
 from torchvision import transforms
