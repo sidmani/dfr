@@ -71,7 +71,7 @@ class Checkpoint:
             self.startEpoch = 0
 
         self.gen = SDFNetwork(self.hparams).to(device)
-        self.dis = Discriminator(self.hparams).to(device)
+        self.dis = Discriminator(self.hparams, channels=1).to(device)
         self.dis.setStage(self.startStage)
 
         self.gradScaler = GradScaler(init_scale=4096., enabled=Flags.AMP)

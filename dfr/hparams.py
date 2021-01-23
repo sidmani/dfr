@@ -32,10 +32,10 @@ class HParams:
     omega0_hidden: float = 5.
     sdfWidth: int = 256
     stages: Tuple[Stage, ...] = (
-        Stage(start=0, raycast=[8], batch=16, fade=0, discChannels=384, sigma=0.1),
-        Stage(start=4000, raycast=[16], batch=32, fade=2500, discChannels=384, sigma=0.01),
-        Stage(start=7000, raycast=[32], batch=16, fade=2500, discChannels=384, sigma=0.005),
-        Stage(start=10000, raycast=[32, 2], batch=16, fade=2500, discChannels=384, sigma=0.005),
+        Stage(start=0, raycast=[8], batch=16, fade=0, discChannels=384, sigma=0.15),
+        Stage(start=4000, raycast=[16], batch=32, fade=5000, discChannels=384, sigma=0.05),
+        Stage(start=9500, raycast=[32], batch=16, fade=5000, discChannels=384, sigma=0.025),
+        Stage(start=15000, raycast=[16, 4], batch=16, fade=2500, discChannels=384, sigma=0.025),
         # Stage(start=35000, raycast=[32, 2], batch=16, fade=5000, discChannels=256, sigma=0.0075),
     )
 

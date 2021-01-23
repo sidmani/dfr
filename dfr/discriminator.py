@@ -37,7 +37,7 @@ class ProgressiveBlock(nn.Module):
         return self.layers(x)
 
 class Discriminator(nn.Module):
-    def __init__(self, hparams, channels=1):
+    def __init__(self, hparams, channels):
         super().__init__()
         self.inChannels = channels
         self.activation = nn.LeakyReLU(0.2)

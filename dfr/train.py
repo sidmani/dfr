@@ -32,15 +32,21 @@ def loop(dataset, device, stages, stageIdx, ckpt, logger, epoch):
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
+    if stageIdx > 0:
+        prevStage = stages[stageIdx - 1]
+        sigma = prevStage.sigma * (1 - dis.alpha) + stage.sigma * dis.alpha
+    else:
+        sigma = stage.sigma
+
     with torch.no_grad():
-        real = dataset.sample(stage.batch, res=stage.imageSize).to(device)
+        real = dataset.sample(stage.batch, res=stage.imageSize, sigma=sigma).to(device)
         real = real[:, 3, :, :].unsqueeze(1)
         real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample(stage.batch, device, ckpt, stage.raycast, stage.sigma)
+    sampled = sample(stage.batch, device, ckpt, stage.raycast, sigma, wide=stageIdx == 0)
     fake = sampled['full'][:, 3, :, :].unsqueeze(1)
-    logData = {'fake': fake, 'real': real}
+    logData = {'fake': fake, 'real': real, 'sigma': sigma}
 
     disData = stepDiscriminator(real, fake, dis, disOpt, gradScaler, hparams.r1Factor)
     logData.update(disData)
@@ -48,10 +54,6 @@ def loop(dataset, device, stages, stageIdx, ckpt, logger, epoch):
     genData = stepGenerator(sampled, dis, genOpt, gradScaler, hparams.eikonal)
     logData.update(genData)
 
-    # if 1.0 - logData['discriminator_real'].item() < 1e-4 and epoch > 2000:
-    #     raise Exception('Training failed; discriminator is perfect.')
-
-    # step the gradient scaler
     gradScaler.update()
 
     if logger is not None:

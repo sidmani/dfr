@@ -26,27 +26,25 @@ class ImageDataset:
         toTensor = transforms.ToTensor()
         self.rng = default_rng()
 
-        for obj in tqdm(objects):
-            with torch.no_grad():
+        with torch.no_grad():
+            for obj in tqdm(objects):
                 img = Image.open(obj)
-                # some of the images have partially transparent portions (alpha > 0.5)
-                # but we don't support that, so make them solid
-                # solid = tens[3] > 0.5
-                # tens[3, solid] = 1.0
                 self.dataset.append(toTensor(img))
                 img.close()
 
-    def sample(self, batchSize, res=None):
+    def sample(self, batchSize, res=None, sigma=0.05):
+        # get a batch of images by index without replacement
         idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)
-        batch = []
-        for i in range(batchSize):
-            batch.append(self.dataset[idxs[i]])
+        batch = [self.dataset[i] for i in idxs]
 
         with torch.no_grad():
             batchTensor = torch.stack(batch)
+            if sigma > 0:
+                # gaussian blur as a low-pass filter (sigma is in sdf units so convert to pixels)
+                batchTensor = blur(batchTensor, sigma * batchTensor.shape[2] / 2)
+
             if res is not None:
                 # resize the images with bilinear interpolation
                 batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
-                batchTensor = blur(batchTensor, 0.05 * res / 2)
 
         return batchTensor
