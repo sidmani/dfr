@@ -46,7 +46,6 @@ class Checkpoint:
             epoch = latestEpoch(runDir / version)
 
         # if the version exists, load it
-        self.startStage = 0
         if epoch is not None:
             print(f'Loading epoch {epoch}.')
             ckpt = torch.load(runDir / version / f"e{epoch}.pt", map_location=device)
@@ -57,9 +56,6 @@ class Checkpoint:
                 self.hparams = ckpt['hparams']
             # self.examples = ckpt['examples']
             self.startEpoch = epoch + 1
-            for stageIdx, stage in enumerate(self.hparams.stages):
-                if self.startEpoch >= stage.start:
-                    self.startStage = stageIdx
         else:
             ckpt = None
             self.hparams = HParams()
@@ -72,10 +68,7 @@ class Checkpoint:
 
         self.gen = SDFNetwork(self.hparams).to(device)
         self.dis = Discriminator(self.hparams, channels=4).to(device)
-        self.dis.setStage(self.startStage)
-
         self.gradScaler = GradScaler(init_scale=4096., enabled=Flags.AMP)
-
         self.genOpt = Adam(self.gen.parameters(),
                            self.hparams.learningRate,
                            betas=self.hparams.betas)
@@ -92,7 +85,6 @@ class Checkpoint:
 
     def save(self, epoch, overwrite=True):
         self.loc.mkdir(exist_ok=True)
-
         if overwrite:
             saved = self.loc.glob('*.pt')
             for file in saved:

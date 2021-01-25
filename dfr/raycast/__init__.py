@@ -53,6 +53,7 @@ def raycast(angles, scales, latents, sdf, gradScaler, sigma, wide=False, thresho
         # project to zx plane and normalize
         # light[:, 1] = 0
         # light = light / light.norm(dim=1).unsqueeze(1)
-        ret = {'normalLength': fullSurface.normalLength}
-        ret['full'] = shade(fullSurface, light, fullData.mask, sigma, wide=wide)
-        return ret
+        return {
+            'normalLength': fullSurface.normalLength,
+            'full': shade(fullSurface, light, fullData.mask, sigma, wide=wide)
+        }

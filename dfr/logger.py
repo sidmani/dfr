@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-from .raycast import raycast
 
 class Logger:
     def __init__(self, ckpt):
@@ -18,16 +17,9 @@ class Logger:
         #     self.writeFixedSamples(idx)
 
     def writeScalars(self, data, idx):
-        self.logger.add_scalar('generator/total', data['generator_loss'], global_step=idx)
-        self.logger.add_scalar('generator/eikonal', data['eikonal_loss'], global_step=idx)
-
-        self.logger.add_scalar('discriminator/fake', data['discriminator_fake'], global_step=idx)
-        self.logger.add_scalar('discriminator/real', data['discriminator_real'], global_step=idx)
-        self.logger.add_scalar('discriminator/total', data['discriminator_total'], global_step=idx)
-        self.logger.add_scalar('discriminator/penalty', data['penalty'], global_step=idx)
-        self.logger.add_scalar('discriminator/sigma', data['sigma'], global_step=idx)
-        self.logger.add_scalar('discriminator/alpha', self.ckpt.dis.alpha, global_step=idx)
-
+        self.logger.add_scalar('eikonal', data['eikonal_loss'], global_step=idx)
+        self.logger.add_scalar('total', data['discriminator_total'], global_step=idx)
+        self.logger.add_scalar('penalty', data['penalty'], global_step=idx)
         self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
 
     def writeImages(self, data, idx):

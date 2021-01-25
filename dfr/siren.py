@@ -29,15 +29,9 @@ class SineLayer(nn.Module):
                                              1 / self.in_features)
             else:
                 siren_linear_init(self.linear, self.omega_0)
-                # self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
-                #                              np.sqrt(6 / self.in_features) / self.omega_0)
 
     def forward(self, input, gamma, beta):
         return torch.sin(self.omega_0 * (self.linear(input) * gamma + beta))
-
-    def forward_debug(self, input, gamma, beta):
-        z = self.omega_0 * (gamma * self.linear(input) + beta)
-        return z, torch.sin(z)
 
 def siren_linear_init(layer, hidden_omega_0):
     with torch.no_grad():

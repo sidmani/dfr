@@ -13,8 +13,7 @@ def R1(real, disReal, gradScaler):
     scale = gradScaler.get_scale()
     grad = [g / scale for g in scaledGrad]
     with autocast(enabled=Flags.AMP):
-        # note that grad has shape NCHW
-        # so we sum over channel, height, weight dims
+        # grad has shape NCHW so we sum over channel, height, weight dims
         # and take mean over batch (N) dimension
         return (grad[0] ** 2.).sum(dim=[1, 2, 3]).mean()
 
@@ -50,7 +49,6 @@ def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
 
 def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
     fake = sampled['full']
-    # fake = sampled['full'][:, 3, :, :].unsqueeze(1)
 
     # save memory by not storing gradients for discriminator
     for p in dis.parameters():
@@ -58,7 +56,6 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
 
     genOpt.zero_grad(set_to_none=True)
     with autocast(enabled=Flags.AMP):
-        # normals have already been scaled to correct values
         # the eikonal loss encourages the sdf to have unit gradient
         eikonalLoss = ((sampled['normalLength'] - 1.0) ** 2.0).mean()
 

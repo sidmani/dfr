@@ -58,7 +58,7 @@ def main(args):
     sil1 = obj1[:, :, 3]
     sil2 = obj2[:, :, 3]
 
-    fig, axs = plt.subplots(4, 2)
+    fig, axs = plt.subplots(2, 2)
     axs[0, 0].imshow(obj1[:, :, :3])
     axs[0, 1].imshow(obj2[:, :, :3])
     axs[1, 0].imshow(sil1)

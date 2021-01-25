@@ -17,9 +17,7 @@ def rotateAxes(angles):
 
 # construct a grid of rays viewing the origin from the camera
 def rayGrid(axes, px, D):
-    # XXX: affects output
     edge = 1. - 1 / px
-
     xSpace = torch.linspace(-edge, edge, steps=px, device=axes.device).repeat(px, 1)[None, :, :, None]
     ySpace = -xSpace.transpose(1, 2)
     x = axes[:, 0][:, None, None, :]

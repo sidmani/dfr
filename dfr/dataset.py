@@ -1,6 +1,10 @@
 import torch
+from .flags import Flags
+from itertools import repeat
+from torch.utils.data.dataset import Dataset
 import numpy as np
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from numpy.random import default_rng
 from torchvision import transforms
 from PIL import Image
@@ -24,7 +28,6 @@ class ImageDataset:
 
         print("Loading entire dataset into CPU memory...")
         toTensor = transforms.ToTensor()
-        self.rng = default_rng()
 
         with torch.no_grad():
             for obj in tqdm(objects):
@@ -32,19 +35,39 @@ class ImageDataset:
                 self.dataset.append(toTensor(img))
                 img.close()
 
-    def sample(self, batchSize, res=None, sigma=0.05):
-        # get a batch of images by index without replacement
-        idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)
-        batch = [self.dataset[i] for i in idxs]
+    def __len__(self):
+        return self.length
 
-        with torch.no_grad():
-            batchTensor = torch.stack(batch)
-            if sigma > 0:
-                # gaussian blur as a low-pass filter (sigma is in sdf units so convert to pixels)
-                batchTensor = blur(batchTensor, sigma * batchTensor.shape[2] / 2)
+    def __getitem__(self, idx):
+        return self.dataset[idx]
 
-            if res is not None:
-                # resize the images with bilinear interpolation
-                batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
+#     def sample(self, batchSize, res=None, sigma=0.05):
+#         # get a batch of images by index without replacement
+#         idxs = self.rng.choice(len(self.dataset), size=batchSize, replace=False)
+#         batch = [self.dataset[i] for i in idxs]
 
-        return batchTensor
+#         with torch.no_grad():
+#             batchTensor = torch.stack(batch)
+#             if sigma > 0:
+#                 # gaussian blur as a low-pass filter (sigma is in sdf units so convert to pixels)
+#                 batchTensor = blur(batchTensor, sigma * batchTensor.shape[2] / 2)
+
+#             if res is not None:
+#                 # resize the images with bilinear interpolation
+#                 batchTensor = F.interpolate(batchTensor, size=(res, res), mode='bilinear', align_corners=False)
+
+#         return batchTensor
+
+# infinite dataloader
+# https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567
+def iterData(dataloader, device):
+    for loader in repeat(dataloader):
+        for data in loader:
+            yield data.to(device)
+
+def makeDataloader(dataset, batch, device):
+    return iterData(DataLoader(dataset,
+            batch_size=batch,
+            pin_memory=True,
+            shuffle=True,
+            num_workers=0 if Flags.profile else 1), device=device)

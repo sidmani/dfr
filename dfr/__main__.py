@@ -4,7 +4,7 @@ import pprint
 from pathlib import Path
 from .train import train
 from .ckpt import Checkpoint
-from .dataset import ImageDataset
+from .dataset import ImageDataset, makeDataloader
 from .logger import Logger
 from .flags import Flags
 
@@ -93,7 +93,8 @@ def main(args):
     torch.backends.cudnn.benchmark = True
 
     dataset = ImageDataset(args.data)
-    train(dataset, device, steps=args.steps, ckpt=ckpt, logger=logger)
+    dataloader = makeDataloader(dataset, ckpt.hparams.batch, device)
+    train(dataloader, steps=args.steps, ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     parser = ArgumentParser()

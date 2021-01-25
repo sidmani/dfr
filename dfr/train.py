@@ -1,53 +1,28 @@
-import torch
 from .raycast import sample
 from tqdm import tqdm
 from .optim import stepDiscriminator, stepGenerator
 from .flags import Flags
 
-def train(dataset, device, steps, ckpt, logger):
-    stages = ckpt.hparams.stages
-
-    for i in range(ckpt.startStage, len(stages)):
-        stage = stages[i]
-        ckpt.dis.setStage(i)
-
-        # start at the stage start, unless the checkpoint is from mid-stage
-        startEpoch = max(stage.start, ckpt.startEpoch)
-        # end at the epoch before the next stage, if the next stage exists
-        if len(stages) > i + 1:
-            endEpoch = min(stages[i + 1].start, steps)
-        else:
-            endEpoch = steps
-
-        print(f'STAGE {i + 1}/{len(stages)}: resolution={stage.imageSize}, batch={stage.batch}.')
-        for epoch in tqdm(range(startEpoch, endEpoch), initial=startEpoch, total=endEpoch):
-            # fade in the new discriminator layer as necessary
-            ckpt.dis.setAlpha(stage.evalAlpha(epoch))
-            loop(dataset, device, stages, i, ckpt, logger, epoch)
+def train(dataloader, steps, ckpt, logger):
+    for epoch in tqdm(ckpt.startEpoch, steps, initial=ckpt.startEpoch, total=steps):
+        loop(dataloader, ckpt, logger, epoch)
 
 # separate the loop function to make sure all variables go out of scope
 # otherwise memory may not be freed, causing 2x max memory usage
-def loop(dataset, device, stages, stageIdx, ckpt, logger, epoch):
-    stage = stages[stageIdx]
+def loop(dataloader, ckpt, logger, epoch):
     dis, gen, disOpt, genOpt, gradScaler = ckpt.dis, ckpt.gen, ckpt.disOpt, ckpt.genOpt, ckpt.gradScaler
     hparams = ckpt.hparams
 
-    if stageIdx > 0:
-        prevStage = stages[stageIdx - 1]
-        sigma = prevStage.sigma * (1 - dis.alpha) + stage.sigma * dis.alpha
-    else:
-        sigma = stage.sigma
-
-    with torch.no_grad():
-        real = dataset.sample(stage.batch, res=stage.imageSize, sigma=sigma).to(device)
-        # real = real[:, 3, :, :].unsqueeze(1)
-        real.requires_grad = True
+    real = next(dataloader)
+    # real = real[:, 3, :, :].unsqueeze(1)
+    real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample(stage.batch, device, ckpt, stage.raycast, sigma, wide=stageIdx == 0)
+    batch = real.shape[0]
+    sampled = sample(batch, real.device, ckpt, hparams.raycast, sigma, wide=stageIdx == 0)
     fake = sampled['full']
     # fake = sampled['full'][:, 3, :, :].unsqueeze(1)
-    logData = {'fake': fake, 'real': real, 'sigma': sigma}
+    logData = {'fake': fake, 'real': real}
 
     disData = stepDiscriminator(real, fake, dis, disOpt, gradScaler, hparams.r1Factor)
     logData.update(disData)
