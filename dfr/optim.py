@@ -40,8 +40,6 @@ def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
     with torch.no_grad():
         real_score = torch.sigmoid(disReal).mean().detach()
         fake_score = torch.sigmoid(disFake).mean().detach()
-        logData['discriminator_real'] = real_score
-        logData['discriminator_fake'] = fake_score
         logData['discriminator_total'] = fake_score - real_score
         logData['penalty'] = penalty.detach()
 
@@ -72,4 +70,4 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
     for p in dis.parameters():
         p.requires_grad = True
 
-    return {'generator_loss': genLoss.detach(), 'eikonal_loss': eikonalLoss.detach()}
+    return {'eikonal_loss': eikonalLoss.detach()}

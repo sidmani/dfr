@@ -10,8 +10,8 @@ class HParams:
     latentStd: float = 2.5
     eikonal: float = 2.0
     r1Factor: float = 10.0
-    omega0_first: float = 5.
-    omega0_hidden: float = 5.
+    omega_first: float = 5.
+    omega_hidden: float = 5.
     sdfWidth: int = 256
     batch: int = 16
     raycast: Tuple[int] = (16, 4)

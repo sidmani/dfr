@@ -24,28 +24,28 @@ class SDFNetwork(nn.Module):
         )
 
         self.layers = nn.ModuleList([
-            SineLayer(3, width, omega_0=hparams.omega0_first, is_first=True),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(3, width, omega=hparams.omega_first, is_first=True),
+            SineLayer(width, width, omega=hparams.omega_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
         ])
 
         self.sdfLayers = nn.ModuleList([
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
             nn.Linear(width, 1),
         ])
 
         self.txLayers = nn.ModuleList([
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
-            SineLayer(width, width, omega_0=hparams.omega0_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
+            SineLayer(width, width, omega=hparams.omega_hidden),
             nn.Linear(width, 3),
         ])
 
-        siren_linear_init(self.sdfLayers[3], hparams.omega0_hidden)
-        siren_linear_init(self.txLayers[3], hparams.omega0_hidden)
+        siren_linear_init(self.sdfLayers[3], hparams.omega_hidden)
+        siren_linear_init(self.txLayers[3], hparams.omega_hidden)
 
     def forward(self, pts, allLatents, mask, geomOnly=False):
         gamma, beta = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)

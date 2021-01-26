@@ -15,7 +15,7 @@ def unmask(values, mask):
     return valueMap.permute(0, 3, 1, 2)
 
 # given SDF values, normals, and texture, construct an image
-def shade(data, light, sphereMask, sigma, wide=False):
+def shade(data, light, sphereMask, sigma):
     illum = illuminate(light, data.normals)
 
     valueMap = unmask(data.values, sphereMask)
@@ -28,15 +28,13 @@ def shade(data, light, sphereMask, sigma, wide=False):
 
     surfaceMask = (valueMap < 0).float()
     px = sphereMask.shape[2]
-    if wide:
-        fuzz = torch.exp(-10 * valueMap).clamp(max=1)
-    else:
-        # TODO: is this correct? (px / 2 vs px)
-        fuzz = (1 - px * valueMap).clamp(0, 1)
-    surface = torch.threshold((1 - valueMap), 1, 0).clamp(0, 1)
-    opacity = fuzz * (1 - surfaceMask) + surface * surfaceMask
+    # TODO: is this correct? (px / 2 vs px)
+    # fuzz = (1 - px / 2 * valueMap).clamp(0, 1)
+    # surface = torch.threshold((1 - valueMap), 1, 0).clamp(0, 1)
+    # opacity = fuzz * (1 - surfaceMask) + surface * surfaceMask
+    opacity = torch.exp(-40 * valueMap).clamp(0, 1)
 
-    if sigma > 0:
-        opacity = blur(opacity, sigma * px / 2)
+    # if sigma > 0:
+    #     opacity = blur(opacity, sigma)
 
-    return torch.cat([illumMap * colorMap * opacity, opacity], dim=1)
+    return torch.cat([colorMap * opacity, opacity], dim=1)

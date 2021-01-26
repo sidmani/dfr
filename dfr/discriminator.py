@@ -19,9 +19,7 @@ class ResBlock(nn.Module):
         )
 
     def forward(self, x):
-        main = self.layers(x)
-        skip = self.skip(x)
-        return (main + skip) / np.sqrt(2)
+        return (self.layers(x) + self.skip(x)) / np.sqrt(2)
 
 class Discriminator(nn.Module):
     def __init__(self, hparams, resolution, channels):

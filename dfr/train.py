@@ -9,9 +9,10 @@ from .precondition import precondition
 def train(dataloader, device, steps, ckpt, logger):
     # if this is a new version, precondition the SDF
     if ckpt.startEpoch == 0:
-        print('Preconditioning SDF!')
-        precondition(ckpt, device, logger=logger, steps=10000)
+        print('Preconditioning SDF...')
+        precondition(ckpt, device, logger=logger, steps=4000)
 
+    print('Starting training loop...')
     for epoch in tqdm(range(ckpt.startEpoch, steps), initial=ckpt.startEpoch, total=steps):
         loop(dataloader, ckpt, logger, epoch)
 
@@ -24,20 +25,13 @@ def loop(dataloader, ckpt, logger, epoch):
     with torch.no_grad():
         real = next(dataloader)
         s = hparams.imageSize
-        real = blur(real, 1.0)
+        # real = blur(real, sigma)
         real = torch.nn.functional.interpolate(real, size=(s, s), mode='bilinear')
         real.requires_grad = True
 
-    # if epoch < 8000:
-    #     sigma = 0
-    #     wide = True
-    # else:
-    sigma = 0.03 * 32 / s
-    wide = False
-
     # sample the generator for fake images
     batch = real.shape[0]
-    sampled = sample(batch, real.device, ckpt, hparams.raycast, sigma, wide=wide)
+    sampled = sample(batch, real.device, ckpt, hparams.raycast, 0.) # 1.5
     fake = sampled['full']
     logData = {'fake': fake, 'real': real}
 

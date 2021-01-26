@@ -9,7 +9,7 @@ from ..flags import Flags
 
 SurfaceData = namedtuple('SurfaceData', ['values', 'textures', 'normals', 'normalLength'])
 
-def sample(batchSize, device, ckpt, scales, sigma, wide=False):
+def sample(batchSize, device, ckpt, scales, sigma):
     # elevation is between 20 and 30 deg (per dataset)
     deg20 = 20 * np.pi / 180
     deg10 = 10 * np.pi / 180
@@ -18,7 +18,7 @@ def sample(batchSize, device, ckpt, scales, sigma, wide=False):
     thetas = torch.rand_like(phis) * (2.0 * np.pi)
     angles = (phis, thetas)
     z = torch.normal(0.0, ckpt.hparams.latentStd, (batchSize, ckpt.hparams.latentSize), device=device)
-    return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sigma, wide=wide)
+    return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sigma)
 
 def evalSurface(data, sdf, gradScaler, threshold):
     with autocast(enabled=Flags.AMP):
@@ -41,7 +41,7 @@ def evalSurface(data, sdf, gradScaler, threshold):
     # values are shifted so the threshold is at 0, and surface < 0
     return SurfaceData(values - threshold, textures, unitNormals, normalLength)
 
-def raycast(angles, scales, latents, sdf, gradScaler, sigma, wide=False, threshold=5e-3):
+def raycast(angles, scales, latents, sdf, gradScaler, sigma, threshold=5e-3):
     with torch.no_grad():
         axes = rotateAxes(angles)
         fullData = multiscale(axes, scales, latents, sdf, threshold)
@@ -55,5 +55,5 @@ def raycast(angles, scales, latents, sdf, gradScaler, sigma, wide=False, thresho
         # light = light / light.norm(dim=1).unsqueeze(1)
         return {
             'normalLength': fullSurface.normalLength,
-            'full': shade(fullSurface, light, fullData.mask, sigma, wide=wide)
+            'full': shade(fullSurface, light, fullData.mask, sigma)
         }
