@@ -16,15 +16,15 @@ def unmask(values, mask):
 
 # given SDF values, normals, and texture, construct an image
 def shade(data, light, sphereMask, sigma, wide=False):
-    # illum = illuminate(light, data.normals)
+    illum = illuminate(light, data.normals)
 
     valueMap = unmask(data.values, sphereMask)
     colorMap = unmask(data.textures, sphereMask)
-    # illumMap = unmask(illum, sphereMask)
+    illumMap = unmask(illum, sphereMask)
 
     # the illumination value isn't well defined outside the surface, and can mess up the gradients
     # so just set it to one. not clear if this affects discriminator.
-    # illumMap[valueMap > 0] = 1.0
+    illumMap[valueMap > 0] = 0.7
 
     surfaceMask = (valueMap < 0).float()
     px = sphereMask.shape[2]
@@ -39,4 +39,4 @@ def shade(data, light, sphereMask, sigma, wide=False):
     if sigma > 0:
         opacity = blur(opacity, sigma * px / 2)
 
-    return torch.cat([colorMap * opacity, opacity], dim=1)
+    return torch.cat([illumMap * colorMap * opacity, opacity], dim=1)

@@ -94,7 +94,7 @@ def main(args):
 
     dataset = ImageDataset(args.data)
     dataloader = makeDataloader(dataset, ckpt.hparams.batch, device)
-    train(dataloader, steps=args.steps, ckpt=ckpt, logger=logger)
+    train(dataloader, device, steps=args.steps, ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":
     parser = ArgumentParser()

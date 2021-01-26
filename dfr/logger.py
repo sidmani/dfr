@@ -17,10 +17,10 @@ class Logger:
         #     self.writeFixedSamples(idx)
 
     def writeScalars(self, data, idx):
-        self.logger.add_scalar('eikonal', data['eikonal_loss'], global_step=idx)
-        self.logger.add_scalar('total', data['discriminator_total'], global_step=idx)
-        self.logger.add_scalar('penalty', data['penalty'], global_step=idx)
-        self.logger.add_scalar('grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
+        self.logger.add_scalar('data/eikonal', data['eikonal_loss'], global_step=idx)
+        self.logger.add_scalar('data/total', data['discriminator_total'], global_step=idx)
+        self.logger.add_scalar('data/penalty', data['penalty'], global_step=idx)
+        self.logger.add_scalar('data/grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
 
     def writeImages(self, data, idx):
         fake = data['fake'].clamp(0, 1)
