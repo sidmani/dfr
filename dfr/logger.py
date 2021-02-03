@@ -10,7 +10,7 @@ class Logger:
     def log(self, data, idx):
         self.writeScalars(data, idx)
 
-        if idx % 100 == 0:
+        if idx % 50 == 0:
             self.writeImages(data, idx)
 
         # if idx % 200 == 0:

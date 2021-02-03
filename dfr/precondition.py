@@ -24,5 +24,5 @@ def precondition(ckpt, device, radius=0.4, steps=5000, batch=128, lr=4e-5, logge
         if logger is not None:
             logger.logger.add_scalar('data/precondition', loss.detach(), global_step=i)
 
-    if loss.item() > 0.5:
-        raise Exception('Preconditioning failed; bad initialization.')
+    # if loss.item() > 0.5:
+    #     raise Exception('Preconditioning failed; bad initialization.')

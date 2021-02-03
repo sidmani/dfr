@@ -11,7 +11,7 @@ class HParams:
     eikonal: float = 2.0
     r1Factor: float = 10.0
     omega_first: float = 5.
-    omega_hidden: float = 5.
+    omega_hidden: float = 15.
     sdfWidth: int = 256
     batch: int = 16
     raycast: Tuple[int] = (16, 4)

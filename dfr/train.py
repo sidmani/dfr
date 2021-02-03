@@ -10,7 +10,7 @@ def train(dataloader, device, steps, ckpt, logger):
     # if this is a new version, precondition the SDF
     if ckpt.startEpoch == 0:
         print('Preconditioning SDF...')
-        precondition(ckpt, device, logger=logger, steps=4000)
+        precondition(ckpt, device, logger=logger, steps=1500)
 
     print('Starting training loop...')
     for epoch in tqdm(range(ckpt.startEpoch, steps), initial=ckpt.startEpoch, total=steps):

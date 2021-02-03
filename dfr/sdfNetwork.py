@@ -20,7 +20,9 @@ class SDFNetwork(nn.Module):
             filmActivation,
             nn.Linear(filmWidth, filmWidth),
             filmActivation,
-            nn.Linear(filmWidth, width * 2),
+            nn.Linear(filmWidth, filmWidth),
+            filmActivation,
+            nn.Linear(filmWidth, width * 2 * 10),
         )
 
         self.layers = nn.ModuleList([
@@ -48,18 +50,20 @@ class SDFNetwork(nn.Module):
         siren_linear_init(self.txLayers[3], hparams.omega_hidden)
 
     def forward(self, pts, allLatents, mask, geomOnly=False):
-        gamma, beta = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
+        conditions = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
+        gammas = conditions[:10]
+        betas = conditions[10:]
 
         r = pts
         for i in range(4):
-            r = self.layers[i](r, gamma, beta)
+            r = self.layers[i](r, gammas[i], betas[i])
 
         # sdf portion
         sdf = r
         if geomOnly:
             del r
         for i in range(3):
-            sdf = self.sdfLayers[i](sdf, gamma, beta)
+            sdf = self.sdfLayers[i](sdf, gammas[4 + i], betas[4 + i])
         sdf = self.sdfLayers[3](sdf)
         if geomOnly:
             return sdf
@@ -68,7 +72,7 @@ class SDFNetwork(nn.Module):
         tx = r
         del r
         for i in range(3):
-            tx = self.txLayers[i](tx, gamma, beta)
+            tx = self.txLayers[i](tx, gammas[7 + i], betas[7 + i])
         tx = (torch.sin(self.txLayers[3](tx)) + 1) / 2
 
         return sdf, tx

@@ -15,7 +15,9 @@ def sample(batchSize, device, ckpt, scales, sigma):
     deg10 = 10 * np.pi / 180
     phis = torch.rand(batchSize, device=device) * deg10 + deg20
     # azimuth is uniform in [0, 2pi]
-    thetas = torch.rand_like(phis) * (2.0 * np.pi)
+    # thetas = torch.rand_like(phis) * (2.0 * np.pi)
+    phis = torch.ones(batchSize, device=device) * 25 * np.pi / 180
+    thetas = torch.zeros_like(phis)
     angles = (phis, thetas)
     z = torch.normal(0.0, ckpt.hparams.latentStd, (batchSize, ckpt.hparams.latentSize), device=device)
     return raycast(angles, scales, z, ckpt.gen, ckpt.gradScaler, sigma)
