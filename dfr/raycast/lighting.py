@@ -14,11 +14,11 @@ def unmask(values, mask):
   return valueMap.permute(0, 3, 1, 2)
 
 # given SDF values, normals, and texture, construct an image
-def shade(data, light, sphereMask, sigma):
-  illum = illuminate(light, data.normals)
+def shade(values, textures, normals, light, sphereMask):
+  illum = illuminate(light, normals)
 
-  valueMap = unmask(data.values, sphereMask)
-  colorMap = unmask(data.textures, sphereMask)
+  valueMap = unmask(values, sphereMask)
+  colorMap = unmask(textures, sphereMask)
   illumMap = unmask(illum, sphereMask)
 
   # the illumination value isn't well defined outside the surface, and can mess up the gradients

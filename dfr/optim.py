@@ -45,9 +45,7 @@ def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
 
   return logData
 
-def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
-  fake = sampled['full']
-
+def stepGenerator(fake, normalLength, dis, genOpt, gradScaler, eikonal):
   # save memory by not storing gradients for discriminator
   for p in dis.parameters():
     p.requires_grad = False
@@ -55,7 +53,7 @@ def stepGenerator(sampled, dis, genOpt, gradScaler, eikonal):
   genOpt.zero_grad(set_to_none=True)
   with autocast(enabled=Flags.AMP):
     # the eikonal loss encourages the sdf to have unit gradient
-    eikonalLoss = ((sampled['normalLength'] - 1.0) ** 2.0).mean()
+    eikonalLoss = ((normalLength - 1.0) ** 2.0).mean()
 
     # the discriminator has been updated so we have to run the forward pass again
     # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12

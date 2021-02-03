@@ -49,8 +49,7 @@ def main(args):
     imgSize = np.prod(args.resolution)
     print(f'Raycasting at resolution {imgSize}x{imgSize}')
     gradScaler = GradScaler(enabled=False)
-    ret = raycast((phis, thetas), args.resolution, latents, sdf, gradScaler, args.sigma)
-    out = ret['full']
+    out, _ = raycast((phis, thetas), latents, args.resolution, sdf, gradScaler)
 
     print(f"{count} SDF queries.")
     obj1 = out[0].permute(1, 2, 0).cpu().detach().numpy()
@@ -84,11 +83,6 @@ if __name__ == "__main__":
             type=int,
             nargs='+',
             default=[32, 4],
-    )
-    parser.add_argument(
-            '--sigma',
-            type=float,
-            default=0.05,
     )
     args = parser.parse_args()
     main(args)

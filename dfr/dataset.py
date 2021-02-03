@@ -31,14 +31,14 @@ class ImageDataset:
 
 # infinite dataloader
 # https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567
-def iterData(dataloader, device):
+def iterData(dataloader):
   for loader in repeat(dataloader):
     for data in loader:
-      yield data.to(device)
+      yield data
 
-def makeDataloader(dataset, batch, device):
+def makeDataloader(dataset, batch):
   return iterData(DataLoader(dataset,
       batch_size=batch,
       pin_memory=True,
       shuffle=True,
-      num_workers=0 if Flags.profile else 1), device=device)
+      num_workers=0 if Flags.profile else 1))

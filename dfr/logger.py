@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 class Logger:
@@ -23,7 +22,7 @@ class Logger:
     self.logger.add_scalar('data/grad_scale', self.ckpt.gradScaler.get_scale(), global_step=idx)
 
   def writeImages(self, data, idx):
-    fake = data['fake'].clamp(0, 1)
+    fake = data['fake']
     real = data['real']
     self.logger.add_images('fake/collage', fake[:, :3], global_step=idx)
     self.logger.add_image('fake/closeup', fake[0, :3], global_step=idx)

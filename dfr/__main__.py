@@ -92,8 +92,7 @@ def main(args):
   # automatically selects best convolution algorithm; yields ~1.5x overall speedup
   torch.backends.cudnn.benchmark = True
 
-  dataset = ImageDataset(args.data)
-  dataloader = makeDataloader(dataset, ckpt.hparams.batch, device)
+  dataloader = makeDataloader(ImageDataset(args.data), ckpt.hparams.batch)
   train(dataloader, device, steps=args.steps, ckpt=ckpt, logger=logger)
 
 if __name__ == "__main__":

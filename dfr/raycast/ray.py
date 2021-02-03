@@ -50,11 +50,11 @@ def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
     planes = torch.stack([near[rayMask], far[rayMask]])
 
     minValues, distances = sphereTrace(rays[rayMask],
-                    expandedOrigin[rayMask],
-                    planes,
-                    expandedLatents[rayMask],
-                    sdf,
-                    threshold=threshold)
+                                expandedOrigin[rayMask],
+                                planes,
+                                expandedLatents[rayMask],
+                                sdf,
+                                threshold=threshold)
 
     terminal[rayMask] = distances.unsqueeze(1)
 

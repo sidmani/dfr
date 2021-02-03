@@ -1,6 +1,8 @@
+import torch
 import numpy as np
 from typing import Tuple
 from dataclasses import dataclass
+from .util import rand_range
 
 @dataclass
 class HParams:
@@ -15,6 +17,13 @@ class HParams:
   sdfWidth: int = 256
   batch: int = 16
   raycast: Tuple[int] = (16, 4)
+
+  # angle ranges
+  azimuth: Tuple[float] = (0, 0)
+  elevation: Tuple[float] = (0, 0)
+  # azimuth: Tuple[float] = (0, np.pi * 2)
+  # elevation: Tuple[float] = (10 * np.pi / 180, 30 * np.pi / 180)
+
   # number of input channels for block with input size
   channels = {
     128: 128,
@@ -25,6 +34,14 @@ class HParams:
     4: 384,
     2: 384,
   }
+
+  def sampleLatents(self, count, device):
+    return torch.normal(0.0, self.latentStd, (count, self.latentSize), device=device)
+
+  def sampleAngles(self, count, device):
+    phis = rand_range(self.elevation, (count,), device)
+    thetas = rand_range(self.azimuth, (count,), device)
+    return (phis, thetas)
 
   @property
   def imageSize(self):
