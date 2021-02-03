@@ -7,72 +7,72 @@ from .siren import SineLayer, siren_linear_init
 # - the branches are deeper than in related architectures (like NeRF)
 
 class SDFNetwork(nn.Module):
-    def __init__(self, hparams):
-        super().__init__()
+  def __init__(self, hparams):
+    super().__init__()
 
-        self.hparams = hparams
-        width = hparams.sdfWidth
-        filmWidth = hparams.sdfWidth
+    self.hparams = hparams
+    width = hparams.sdfWidth
+    filmWidth = hparams.sdfWidth
 
-        filmActivation = nn.LeakyReLU(0.2)
-        self.film = nn.Sequential(
-            nn.Linear(hparams.latentSize, filmWidth),
-            filmActivation,
-            nn.Linear(filmWidth, filmWidth),
-            filmActivation,
-            nn.Linear(filmWidth, filmWidth),
-            filmActivation,
-            nn.Linear(filmWidth, width * 2 * 10),
-        )
+    filmActivation = nn.LeakyReLU(0.2)
+    self.film = nn.Sequential(
+      nn.Linear(hparams.latentSize, filmWidth),
+      filmActivation,
+      nn.Linear(filmWidth, filmWidth),
+      filmActivation,
+      nn.Linear(filmWidth, filmWidth),
+      filmActivation,
+      nn.Linear(filmWidth, width * 2 * 10),
+    )
 
-        self.layers = nn.ModuleList([
-            SineLayer(3, width, omega=hparams.omega_first, is_first=True),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-        ])
+    self.layers = nn.ModuleList([
+      SineLayer(3, width, omega=hparams.omega_first, is_first=True),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+    ])
 
-        self.sdfLayers = nn.ModuleList([
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            nn.Linear(width, 1),
-        ])
+    self.sdfLayers = nn.ModuleList([
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      nn.Linear(width, 1),
+    ])
 
-        self.txLayers = nn.ModuleList([
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            SineLayer(width, width, omega=hparams.omega_hidden),
-            nn.Linear(width, 3),
-        ])
+    self.txLayers = nn.ModuleList([
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      nn.Linear(width, 3),
+    ])
 
-        siren_linear_init(self.sdfLayers[3], hparams.omega_hidden)
-        siren_linear_init(self.txLayers[3], hparams.omega_hidden)
+    siren_linear_init(self.sdfLayers[3], hparams.omega_hidden)
+    siren_linear_init(self.txLayers[3], hparams.omega_hidden)
 
-    def forward(self, pts, allLatents, mask, geomOnly=False):
-        conditions = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
-        gammas = conditions[:10]
-        betas = conditions[10:]
+  def forward(self, pts, allLatents, mask, geomOnly=False):
+    conditions = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
+    gammas = conditions[:10]
+    betas = conditions[10:]
 
-        r = pts
-        for i in range(4):
-            r = self.layers[i](r, gammas[i], betas[i])
+    r = pts
+    for i in range(4):
+      r = self.layers[i](r, gammas[i], betas[i])
 
-        # sdf portion
-        sdf = r
-        if geomOnly:
-            del r
-        for i in range(3):
-            sdf = self.sdfLayers[i](sdf, gammas[4 + i], betas[4 + i])
-        sdf = self.sdfLayers[3](sdf)
-        if geomOnly:
-            return sdf
+    # sdf portion
+    sdf = r
+    if geomOnly:
+      del r
+    for i in range(3):
+      sdf = self.sdfLayers[i](sdf, gammas[4 + i], betas[4 + i])
+    sdf = self.sdfLayers[3](sdf)
+    if geomOnly:
+      return sdf
 
-        # texture portion
-        tx = r
-        del r
-        for i in range(3):
-            tx = self.txLayers[i](tx, gammas[7 + i], betas[7 + i])
-        tx = (torch.sin(self.txLayers[3](tx)) + 1) / 2
+    # texture portion
+    tx = r
+    del r
+    for i in range(3):
+      tx = self.txLayers[i](tx, gammas[7 + i], betas[7 + i])
+    tx = (torch.sin(self.txLayers[3](tx)) + 1) / 2
 
-        return sdf, tx
+    return sdf, tx
