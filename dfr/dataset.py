@@ -1,33 +1,22 @@
-import torch
 from .flags import Flags
 from itertools import repeat
+import multiprocessing
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from PIL import Image
-from tqdm import tqdm
 
 class ImageDataset:
   def __init__(self, dataPath):
     super().__init__()
-    self.dataset = []
-
-    objects = list(dataPath.glob('*'))
-    self.length = len(objects)
-
-    print("Loading entire dataset into CPU memory...")
-    toTensor = transforms.ToTensor()
-
-    with torch.no_grad():
-      for obj in tqdm(objects):
-        img = Image.open(obj)
-        self.dataset.append(toTensor(img))
-        img.close()
+    self.objects = list(dataPath.glob('*'))
+    self.toTensor = transforms.ToTensor()
 
   def __len__(self):
-    return self.length
+    return len(self.objects)
 
   def __getitem__(self, idx):
-    return self.dataset[idx]
+    with Image.open(self.objects[idx]) as img:
+      return self.toTensor(img)
 
 # infinite dataloader
 # https://discuss.pytorch.org/t/implementing-an-infinite-loop-dataset-dataloader-combo/35567
@@ -36,9 +25,9 @@ def iterData(dataloader):
     for data in loader:
       yield data
 
-def makeDataloader(dataset, batch):
+def makeDataloader(dataset, batch, workers=min(multiprocessing.cpu_count(), 8)):
   return iterData(DataLoader(dataset,
       batch_size=batch,
       pin_memory=True,
       shuffle=True,
-      num_workers=0 if Flags.profile else 1))
+      num_workers=0 if Flags.profile else workers))

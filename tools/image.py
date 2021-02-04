@@ -7,8 +7,7 @@ from dfr.dataset import ImageDataset, makeDataloader
 from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
-from dfr.raycast import sample
-from dfr.image import blur
+from dfr.raycast import raycast
 
 def main(args):
     device = torch.device('cuda')
@@ -18,20 +17,21 @@ def main(args):
                       device=device)
     count = 6
     hp = ckpt.hparams
-    dataset = ImageDataset(Path('../dataset'))
-    dataloader = makeDataloader(dataset, count, device)
+    dataset = ImageDataset(args.data)
+    dataloader = makeDataloader(dataset, count)
     dis = ckpt.dis
 
     with torch.no_grad():
-        real = next(dataloader)
+        real = next(dataloader).to(device)
         # real = blur(real, 3.)
         s = hp.imageSize
         real = torch.nn.functional.interpolate(real, size=(s, s), mode='bilinear')
         real.requires_grad = True
 
     # sample the generator for fake images
-    sampled = sample(count, device, ckpt, hp.raycast, 0.)
-    fake = sampled['full']
+    angles = hp.sampleAngles(count, device)
+    z = hp.sampleLatents(count, device)
+    fake, _ = raycast(angles, z, hp.raycast, ckpt.gen, ckpt.gradScaler)
     criterion = torch.nn.BCEWithLogitsLoss()
 
     disReal = dis(real).view(-1)
@@ -44,7 +44,7 @@ def main(args):
 
     loss = disLossReal + disLossFake
 
-    if args.dataset:
+    if args.real:
         inputs = real
     else:
         inputs = fake
@@ -58,7 +58,7 @@ def main(args):
 
     items = []
     for i in range(fake.shape[0]):
-        if args.dataset:
+        if args.real:
             target = real
             scores = disReal
         else:
@@ -103,9 +103,16 @@ if __name__ == "__main__":
             default=3,
     )
     parser.add_argument(
-            '--dataset',
+            '--real',
             action='store_true',
             default=False
+    )
+    parser.add_argument(
+      '--dataset',
+      '-d',
+      dest='data',
+      type=Path,
+      help='The folder of source images',
     )
     args = parser.parse_args()
     main(args)

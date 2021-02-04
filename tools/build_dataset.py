@@ -46,7 +46,6 @@ if __name__ == "__main__":
     rng = np.random.default_rng()
 
     for folder in tqdm(objects):
-        # idxs = np.random.randint(0, imgsPerFolder)
         idxs = rng.choice(imgsPerFolder, size=args.count)
         for i in range(args.count):
             imgPath = Path(folder / 'rendering' / f'{idxs[i]:02d}.png')

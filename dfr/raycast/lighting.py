@@ -22,7 +22,6 @@ def shade(values, textures, normals, light, sphereMask):
   illumMap = unmask(illum, sphereMask)
 
   # the illumination value isn't well defined outside the surface, and can mess up the gradients
-  # so just set it to one. not clear if this affects discriminator.
   illumMap[valueMap > 0] = 0.7
 
   surfaceMask = (valueMap < 0).float()
