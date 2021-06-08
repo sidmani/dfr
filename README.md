@@ -1,54 +1,161 @@
-# Renderer
-The renderer uses multiple passes in increasing resolution to approximately figure out where the object is, with autograd disabled, and does a final evaluation on the critical points with autograd on. The speed of the renderer is bound to the total number of SDF queries, and the memory usage is tied to the number of queries in the final pass (due to autograd). It's possible to decrease the mean memory usage by basing the density of the final evaluation on the resolution used at a certain pixel, but this introduces some grid artifacts. Also, decreasing the mean is unhelpful, since the max usage determines the batch size. This algorithm is available on the branch `memory`.
+# GAN for 3D objects
+This repository defines a GAN that can learn 3D geometry from images. The discriminator is based on StyleGAN-2, and the generator is a coordinate neural network, representing a signed-distance field (SDF), based on the FiLM-SIREN architecture from pi-GAN (Chan _et al._ 2020). The generator is conditioned on a latent code, sampled from a normal distribution.
 
-The need for fuzzing the edges to help geometry learning likely degrades the quality of the edges. Need to investigate other methods of propagating gradients through free space.
+The system supports automatic mixed-precision, logging to Tensorboard (`/dfr/logger.py`), checkpointing (`/dfr/ckpt.py`).
 
-During training, grid artifacts appear around epoch 3-5k and disappear around epoch 12-14k. These are likely caused by the periodic positional encoding's effect on the texture network, and not due to the ray grid. Jittering the rays does not reduce these artifacts and should not be used; the jittering introduces errors in the multiscale refinement process and degrades the quality of edges. However, it is important to randomize the starting distance of rays in order to provide supervision to more points on the surface- otherwise, the sampled points all lie on concentric circles.
+## Differentiable raycaster
+Differentiable rendering is necessary to optimize the SDF, so I've built an extremely fast differentiable raycaster (`/dfr/raycast`). I think this is the coolest part of the code, so here is a detailed description.
 
-I tried taking the mean over various points within a pixel in order to reduce grid artifacts, but this increases memory usage 3-4x and doesn't seem to improve anything. 
+The camera angle is randomized per batch, in order to optimize all parts of the shapes. So the first step in raycasting is to construct a unitary 3D rotation matrix from a position on the unit sphere (given by 2 angles: theta, phi).
+```python
+# create rotation matrices from camera angles (phi, theta)
+# angles is a tuple of two 1D tensors
+def rotateAxes(angles):
+  phis, thetas = angles
+  cos_theta = torch.cos(thetas)
+  sin_theta = torch.sin(thetas)
+  cos_phi = torch.cos(phis)
+  sin_phi = torch.sin(phis)
 
-The renderer imposes an approximation to the unit circle on the output image at the minimum used resolution. This can cause problems at certain view angles for long objects, and should be fixed. **TODO**
+  # composition of 2 transforms: rotate theta first, then phi
+  return torch.stack([
+    torch.stack([cos_theta, -sin_theta * sin_phi, cos_phi * sin_theta], dim=1),
+    torch.stack([torch.zeros_like(cos_phi), cos_phi, sin_phi], dim=1),
+    torch.stack([-sin_theta, -sin_phi * cos_theta, cos_phi * cos_theta], dim=1),
+  ], dim=2)
+```
+The resulting matrix will rotate the coordinate frame such that the positive Z-axis points to the desired location. The advantage of this method is that once the axes are rotated, we no longer need to worry about rotating anything.
 
-Ultimately, I suspect that it is impossible to get usable results at less than 128x128 resolution, but at that resolution only 12 objects can fit in 16GB of VRAM (again limited by the autograd memory usage). An easy solution is to use the 32GB V100, which may take around 40 hours to train 100k epochs with a batch size of 32.
+Next, we construct a grid of rays aiming from the positive Z-axis (which is now rotated correctly)
+```python
+# construct a grid of rays viewing the origin from the camera
+# axes is a batch x 3 x 3 tensor representing the bases of the rotated coordinate frames
+# px is the resolution of the ray grid
+# D is the scalar camera distance from the origin
+def rayGrid(axes, px, D):
+  edge = 1. - 1 / px
+  xSpace = torch.linspace(-edge, edge, steps=px, device=axes.device).repeat(px, 1)[None, :, :, None]
+  ySpace = -xSpace.transpose(1, 2)
+  x = axes[:, 0][:, None, None, :]
+  y = axes[:, 1][:, None, None, :]
+  z = axes[:, 2][:, None, None, :]
 
-# Generator
-It is likely that the Eikonal gradient penalty causes the frequency of the textures to decrease, since the textures currently have only 2 separate layers and depend on the backbone network for the other 6. **TODO**
+  # each ray is the difference between a point in the square and the camera position (z * D)
+  rays = xSpace * x + ySpace * y - z * D
+  return rays / rays.norm(dim=3, keepdim=True)
+```
+This produces a tensor of unit vectors which represent a grid of rays (one per pixel). The field-of-view is assumed to match the square in the XY-plane [-1, 1] X [-1, 1]. It is very important to construct the rays to be equally spaced in this square for the image to be undistorted. This is _not_ the same as equal angles between rays; that would cause spherical distortion.
 
-SIRENs may improve the quality of the generated output. (Does this conflict with positional encoding?) Also, like SALD, softplus may be useful.
+Since we're using an implicit neural network to represent geometry, each ray step requires a network forward pass, and rendering an object in 64x64 usually takes around 30k steps. This is really expensive, so we apply all sorts of optimizations to the raycasting process.
 
-The positional encoding can be increased to 10 frequencies as in NeRF, but this is unlikely to help much.
+This method marches along rays in order to find the surface of the object (which is a root of the neural network; `f(x) = 0`). It uses sphere-tracing to optimize the convergence rate, and implements some clever boolean masking to avoid evaluation for rays that have either intersected the object or exited the unit sphere (which the object is assumed to be bounded by). 
+```python
+# batched sphere tracing with culling of terminated rays
+def sphereTrace(rays, origin, planes, latents, sdf, threshold, steps=16):
+  minValues = 5.0 * torch.ones(rays.shape[0], device=rays.device)
+  mask = torch.ones_like(minValues, dtype=torch.bool)
+  distance = planes[0] + 2.0 / steps
+  minDistances = distance.clone()
 
-Weight norm doesn't seem to change much, so I'm keeping it enabled in case it improves the converged solution at all.
+  # start from 1, because the initial critical points are the 0-idx
+  for i in range(1, steps):
+    # march along each ray
+    # compute the next target point
+    targets = (origin + rays * distance.unsqueeze(1))[mask]
 
-GRAF uses a separate latent code for the texture, which could be very useful. Try this after stuff works better.
+    # stop if all rays have terminated
+    if targets.shape[0] == 0:
+      break
 
-A deeper branch architecture (4 layers) may improve textures a lot, because the skip connection can go directly into the texture network.
+    # evaluate the targets
+    with autocast(enabled=Flags.AMP):
+      values = sdf(targets, latents, mask, geomOnly=True).squeeze(1).type(torch.float)
+    del targets
 
-A different colorspace (like HSV) may be useful because the lightening/darkening of a surface can be conducted via color or surface normal, and I think it's biased towards changing the normal instead of darkening the color, casuing dents where dark spots should be.
+    # TODO: this is a bottleneck
+    # Boolean indexing produces a variably-sized result, which causes an
+    # expensive CPU-GPU sync. But all of these masks work together to limit the
+    # number of SDF queries, which is also very expensive.
+    minMask = values < minValues[mask]
+    updateMask = torch.zeros_like(mask)
+    updateMask[mask] = minMask
 
-# Discriminator
-It has been suggested that the discriminator cannot handle multiple views of the object, but in practice I don't think this is an issue.
+    floatMask = updateMask.float()
+    # update min and argmin
+    minDistances = (1 - floatMask) * minDistances + floatMask * distance
+    minValues[updateMask] = values[minMask]
 
-Looks like the standard GAN loss (based on the KL divergence) is unstable with this architecture. Using the WGAN loss without regularization causes (as expected) exploding gradients and violates the Lipschitz condition on the discriminator. I've tried 3 methods for enforcing the Lipschitz constraint:
+    # terminate all rays that intersect the surface (negated)
+    intersectMask = values > threshold
 
-- *WGAN-GP*
-This is the method recommended in DFR, and it works better than any other method. One of the concerns is that it's computationally expensive, but the running the generator is so expensive that the gradient penalty is a small fraction of total time. It may have a large memory impact, but this needs investigation.
+    # sphere trace
+    distance[mask] += values
 
-- *Spectral Norm*
-Spectral norm doesn't work with the standard GAN loss (unstable training, mode collapse, vanishing gradient), but stabilizes training with the WGAN loss. However, the results are incredibly degraded and unusable. It seems like this is a known problem; spectral norm doesn't work with WGAN loss even though it was designed to do so.
+    # terminate rays that exit the unit sphere on the next step (again negated)
+    exitMask = distance < planes[1] * mask.float()
 
-- *Sphere-GAN + WGAN loss*
-The gradients vanish rapidly and it's impossible to get any results. I tried more than a hundred different hyperparameter settings and architectures tweaks.
+    mask[mask] = intersectMask
+    mask = torch.logical_and(mask, exitMask)
 
-The eikonal factor is moderately important, because a high factor may significantly hamper texture learning and fine geometric features. The model still learns a renderable object with the factor set to 0, but it's prone to having blobs appear far from the object along with other artifacts.
+  return minValues, minDistances
+```
 
-It's fairly clear that the discriminator is powerful enough for the current setting, but more experimentation is needed with different discriminator/generator update ratios.
+In fact, this is _still_ too slow to use on my RTX 3080, so the outer loop implements a further optimization: first find out roughly where the object is at low resolution, and progressively increase the resolution in order to avoid wasting time on regions that miss the object.
+```python
+# nearest-neighbor upsampling
+def upsample(t, scale):
+  return t.repeat_interleave(scale, dim=1).repeat_interleave(scale, dim=2)
 
-# Training 
-The generator's gradients aren't used in the iterations where it's not updated, but they're required for computing normals, so we can't use `no_grad` here.
+# iteratively raycast at increasing resolution
+def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
+  cameraD = 1.0 / np.tan(fov / 2.0)
 
-AMP can significantly reduce memory usage and is a high-priority task. **TODO**
+  terminal = torch.zeros(axes.shape[0], 1, 1, 1, device=axes.device)
+  rayMask = torch.ones_like(terminal, dtype=torch.bool).squeeze(3)
+  origin = cameraD * axes[:, 2][:, None, None, :]
+  latents = latents[:, None, None, :]
+  size = 1
 
-There's some sort of glitch which causes multiple tensorboard event files to be created when opening the checkpoint (e.g. to view a mesh).
+  for idx, scale in enumerate(scales):
+    if idx > 0:
+      # a geometric bound for whether a super-ray could have subrays that intersected the object
+      k = distances * 2 * np.tan(fov / (2. * size))
+      # this is suspicious because it uses a step size which is not actually used by sphere tracing
+      # also the 0.5 at the end is empirical
+      bound = torch.sqrt(2. * k ** 2. + (1.0 / 16.0) ** 2) * 0.5
 
-The downsampling for the training data causes bad pixels to appear, try a better interpolation algorithm. 
+      # subdivide the rays that pass close to the object
+      rayMask[rayMask] = minValues <= bound
+
+    size *= scale
+    rays = rayGrid(axes, size, cameraD)
+    near, far, sphereMask = computePlanes(rays, axes, cameraD)
+    if idx == 0:
+      smallestMask = sphereMask
+
+    terminal = upsample(terminal, scale)
+    rayMask = upsample(rayMask, scale)
+    expandedLatents = latents.expand(-1, size, size, -1)
+    expandedOrigin = origin.expand(-1, size, size, -1)
+
+    # terminate rays that don't intersect the unit sphere
+    rayMask = torch.logical_and(rayMask, sphereMask)
+    planes = torch.stack([near[rayMask], far[rayMask]])
+
+    minValues, distances = sphereTrace(rays[rayMask],
+                                expandedOrigin[rayMask],
+                                planes,
+                                expandedLatents[rayMask],
+                                sdf,
+                                threshold=threshold)
+
+    terminal[rayMask] = distances.unsqueeze(1)
+
+  # use the lowest-resolution mask, because the high res mask includes unsampled rays
+  sphereMask = upsample(smallestMask, size // scales[0])
+  points = (origin + terminal * rays)[sphereMask]
+  points.requires_grad = True
+  return SampleData(points, expandedLatents, sphereMask)
+```
+
+And that's the renderer. The rest of the code is fairly straightforward (neural network definitions, dataloading, GAN training loop).
