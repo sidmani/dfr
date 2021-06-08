@@ -1,100 +1,78 @@
 import torch
 import torch.nn as nn
-import numpy as np
-from .positional import positional
+from .siren import SineLayer, siren_linear_init
+
+# The SDF network is a SIREN, with FiLM conditioning, as in pi-GAN.
+# - the FiLM network is run multiple times on the same latents; do forward pass before mask
+# - the branches are deeper than in related architectures (like NeRF)
 
 class SDFNetwork(nn.Module):
-    def __init__(self, hparams, basis, width=512):
-        super().__init__()
-        inputSize = hparams.latentSize + 3 * hparams.positional * 2
+  def __init__(self, hparams):
+    super().__init__()
 
-        self.layers = nn.ModuleList([
-            nn.Linear(inputSize, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width - inputSize),
-            # skip connection from input into 5th layer
-        ])
+    self.hparams = hparams
+    width = hparams.sdfWidth
+    filmWidth = hparams.sdfWidth
 
-        self.sdfLayers = nn.ModuleList([
-            nn.Linear(width, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
-            nn.Linear(width, 1),
-        ])
+    filmActivation = nn.LeakyReLU(0.2)
+    self.film = nn.Sequential(
+      nn.Linear(hparams.latentSize, filmWidth),
+      filmActivation,
+      nn.Linear(filmWidth, filmWidth),
+      filmActivation,
+      nn.Linear(filmWidth, filmWidth),
+      filmActivation,
+      nn.Linear(filmWidth, width * 2 * 10),
+    )
 
-        self.txLayers = nn.ModuleList([
-            nn.Linear(width, width),
-            nn.Linear(width, width),
-            nn.Linear(width, width),
-            nn.Linear(width, 3),
-        ])
+    self.layers = nn.ModuleList([
+      SineLayer(3, width, omega=hparams.omega_first, is_first=True),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+    ])
 
-        self.basis = basis
+    self.sdfLayers = nn.ModuleList([
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      nn.Linear(width, 1),
+    ])
 
-        self.hparams = hparams
-        if hparams.weightNorm:
-            for i in range(len(self.layers)):
-                self.layers[i] = nn.utils.weight_norm(self.layers[i])
+    self.txLayers = nn.ModuleList([
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      SineLayer(width, width, omega=hparams.omega_hidden),
+      nn.Linear(width, 3),
+    ])
 
-            for i in range(len(self.sdfLayers)):
-                self.sdfLayers[i] = nn.utils.weight_norm(self.sdfLayers[i])
+    siren_linear_init(self.sdfLayers[3], hparams.omega_hidden)
+    siren_linear_init(self.txLayers[3], hparams.omega_hidden)
 
-            for i in range(len(self.txLayers)):
-                self.txLayers[i] = nn.utils.weight_norm(self.txLayers[i])
+  def forward(self, pts, allLatents, mask, geomOnly=False):
+    conditions = torch.split(self.film(allLatents[mask]), self.hparams.sdfWidth, dim=1)
+    gammas = conditions[:10]
+    betas = conditions[10:]
 
-        # DeepSDF uses ReLU, SALD uses Softplus
-        self.activation = nn.ReLU()
+    r = pts
+    for i in range(4):
+      r = self.layers[i](r, gammas[i], betas[i])
 
-    # this must be run with no_grad
-    def forward_inplace(self, pts, allLatents, mask):
-        expandedLatents = allLatents[mask]
-        sin, cos = positional(pts, self.basis, inplace=True)
-        inp = torch.cat([sin, cos, expandedLatents], dim=1)
-        del sin
-        del cos
-        del expandedLatents
+    # sdf portion
+    sdf = r
+    if geomOnly:
+      del r
+    for i in range(3):
+      sdf = self.sdfLayers[i](sdf, gammas[4 + i], betas[4 + i])
+    sdf = self.sdfLayers[3](sdf)
+    if geomOnly:
+      return sdf
 
-        a = inp
-        for i in range(4):
-            a = self.activation(self.layers[i](a))
+    # texture portion
+    tx = r
+    del r
+    for i in range(3):
+      tx = self.txLayers[i](tx, gammas[7 + i], betas[7 + i])
+    tx = (torch.sin(self.txLayers[3](tx)) + 1) / 2
 
-        # skip connection
-        a = torch.cat([inp, a], dim=1)
-        del inp
-
-        # sdf portion
-        for i in range(3):
-            a = self.activation(self.sdfLayers[i](a))
-
-        return self.sdfLayers[3](a)
-
-    def forward(self, pts, expandedLatents):
-        sin, cos = positional(pts, self.basis)
-
-        # a single cat operation here saves a lot of memory
-        inp = torch.cat([sin, cos, expandedLatents], dim=1)
-        del sin, cos
-
-        r = inp
-        for i in range(4):
-            r = self.activation(self.layers[i](r))
-
-        # skip connection
-        r = torch.cat([inp, r], dim=1)
-        del inp
-
-        # sdf portion
-        sdf = r
-        for i in range(3):
-            sdf = self.activation(self.sdfLayers[i](sdf))
-        sdf = self.sdfLayers[3](sdf)
-
-        # texture portion
-        tx = r
-        del r
-        for i in range(3):
-            tx = self.activation(self.txLayers[i](tx))
-        tx = torch.sigmoid(self.txLayers[3](tx))
-
-        return sdf, tx
+    return sdf, tx

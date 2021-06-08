@@ -28,4 +28,5 @@ def print_memory_stats():
         ])
 
     print(tabulate(statistics, headers=['loc', 'mean', 'max', 'min']))
-    print(torch.cuda.max_memory_allocated() / (1024 ** 2))
+    max_cuda = torch.cuda.max_memory_allocated() / (1024 ** 2)
+    print(f"CUDA max allocated: {round(max_cuda, 2)} MB")

@@ -5,18 +5,18 @@ from skimage import measure
 from trimesh import Trimesh, Scene
 from trimesh.viewer.windowed import SceneViewer
 from pathlib import Path
-from dfr.checkpoint import Checkpoint
+from dfr.ckpt import Checkpoint
 
 def main(args):
+    device = torch.device('cuda')
     ckpt = Checkpoint(Path.cwd() / 'runs',
                       version=args.ckpt,
-                      epoch=args.epoch,
-                      device=torch.device('cpu'))
+                      device=device)
 
     res = int(args.res)
 
     with torch.no_grad():
-        points = torch.linspace(-1.0, 1.0, res)
+        points = torch.linspace(-1.0, 1.0, res, device=device)
         x, y, z = torch.meshgrid(points, points, points)
 
         # grid has dimension res^3 x 3
@@ -29,16 +29,17 @@ def main(args):
         latent = torch.normal(
                 mean=0.0,
                 std=ckpt.hparams.latentStd,
-                size=(1, ckpt.hparams.latentSize))
+                size=(1, ckpt.hparams.latentSize),
+                device=device)
 
         expandedLatents = latent.expand(grid.shape[0], -1)
 
         # create input vector and compute values
         # out, normals = gen.sdf(grid, latent)
-        out = ckpt.gen.sdf(grid, expandedLatents, geomOnly=True)
+        out, tx = ckpt.gen(grid, expandedLatents, mask=torch.ones(*expandedLatents.shape[:-1], device=device, dtype=torch.bool))
         # reshape and return a 3D grid
         # TODO: does this cause rotation?
-        cubic = torch.reshape(out, (res, res, res)).detach().numpy()
+        cubic = torch.reshape(out, (res, res, res)).detach().cpu().numpy()
 
     verts, faces, normals, values = measure.marching_cubes(cubic, 0)
     mesh = Trimesh(vertices=verts, faces=faces)

@@ -1,82 +1,71 @@
 import torch
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import autocast
+from .flags import Flags
 
-# WGAN-gp gradient penalty
-# basic idea: the discriminator should have unit gradient along the real-fake line
-def gradientPenalty(dis, real, fake, gradScaler):
-    # epsilon different for each batch item
-    # ignoring that torch.rand is in [0, 1), but wgan-gp specifies [0, 1]
-    with autocast():
-        epsilon = torch.rand(real.shape[0], 1, 1, 1, device=real.device)
-        interp = epsilon * real + (1.0 - epsilon) * fake
-        outputs = dis(interp)
+criterion = torch.nn.BCEWithLogitsLoss()
 
-    # original grad calculation was wrong; see:
-    # https://stackoverflow.com/questions/53413706/large-wgan-gp-train-loss
-    # grad has shape [batch, channels, px, px]
-    scaledGrad = torch.autograd.grad(outputs=gradScaler.scale(outputs),
-                               inputs=interp,
-                               grad_outputs=torch.ones_like(outputs),
-                               create_graph=True,
-                               retain_graph=True,
-                               only_inputs=True)[0]
+# R1 gradient penalty (Mescheder et al., 2018)
+def R1(real, disReal, gradScaler):
+  scaledGrad = torch.autograd.grad(outputs=gradScaler.scale(disReal),
+                  inputs=real,
+                  grad_outputs=torch.ones_like(disReal),
+                  create_graph=True)
+  scale = gradScaler.get_scale()
+  grad = [g / scale for g in scaledGrad]
+  with autocast(enabled=Flags.AMP):
+    # grad has shape NCHW so we sum over channel, height, weight dims
+    # and take mean over batch (N) dimension
+    return (grad[0] ** 2.).sum(dim=[1, 2, 3]).mean()
 
-    grad = scaledGrad / gradScaler.get_scale()
+def stepDiscriminator(real, fake, dis, disOpt, gradScaler, r1Factor):
+  disOpt.zero_grad(set_to_none=True)
+  real.requires_grad = True
+  with autocast(enabled=Flags.AMP):
+    disReal = dis(real).view(-1)
+    label = torch.full((real.shape[0],), 1., device=disReal.device)
+    disLossReal = criterion(disReal, label)
 
-    with autocast():
-        # square; sum over pixel & channel dims; sqrt
-        # shape [batch]; each element is the norm of a whole image
-        gradNorm = (grad ** 2.0).sum(dim=[1, 2, 3]).sqrt()
-        return ((gradNorm - 1.0) ** 2.0).mean()
-
-def stepGenerator(fake, normals, dis, genOpt, eikonalFactor, gradScaler):
-    with autocast():
-        # normals have already been scaled to correct values
-        # the eikonal loss encourages the sdf to have unit gradient
-        eikonalLoss = ((normals.norm(dim=1) - 1.0) ** 2.0).mean()
-
-        # check what the discriminator thinks
-        genLoss = -dis(fake).mean() + eikonalFactor * eikonalLoss
-
-    for p in dis.parameters():
-        p.requires_grad = False
-
-    # graph: genLoss -> discriminator -> generator
-    gradScaler.scale(genLoss).backward()
-    gradScaler.step(genOpt)
-
-    for p in dis.parameters():
-        p.requires_grad = True
-
-    # reset the generator, since it's done being differentiated
-    genOpt.zero_grad(set_to_none=True)
-
-    # the gen's params have changed, so can't backwards again on existing genLoss
-    # so we have to run the discriminator again
-    # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
-    # discriminator takes only 1/200 the time of the generator pass, so not a problem
-    return {'generator_loss': genLoss,
-            'eikonal_loss': eikonalLoss}
-
-def stepDiscriminator(fake, real, dis, disOpt, gradScaler):
     # the generator's not gonna be updated, so detach it from the grad graph
-    # also possible that generator has been modified in-place, so can't backprop through it
-    # detach() sets requires_grad=False, so reset it to True
-    # need to clone so that in-place ops in CNN are legal
-    fake = fake.detach().clone().requires_grad_()
+    disFake = dis(fake.detach()).view(-1)
+    label = torch.full((real.shape[0],), 0., device=disReal.device)
+    disLossFake = criterion(disFake, label)
 
-    penalty = gradientPenalty(dis, real, fake, gradScaler)
+  # apply sigmoid to discriminator output, since BCEWithLogitsLoss does that internally
+  penalty = r1Factor * R1(real, torch.sigmoid(disReal), gradScaler)
 
-    with autocast():
-        disFake = dis(fake).mean()
-        disReal = dis(real).mean()
-        disLoss = disFake - disReal + penalty * 10.0
+  gradScaler.scale(disLossReal + disLossFake + penalty).backward()
+  gradScaler.step(disOpt)
 
-    gradScaler.scale(disLoss).backward()
-    gradScaler.step(disOpt)
+  logData = {}
+  with torch.no_grad():
+    real_score = torch.sigmoid(disReal).mean().detach()
+    fake_score = torch.sigmoid(disFake).mean().detach()
+    logData['discriminator_total'] = fake_score - real_score
+    logData['penalty'] = penalty.detach()
 
-    disOpt.zero_grad(set_to_none=True)
+  return logData
 
-    return {'discriminator_real': disReal,
-            'discriminator_fake': disFake,
-            'discriminator_total': disLoss}
+def stepGenerator(fake, normalLength, dis, genOpt, gradScaler, eikonal):
+  # save memory by not storing gradients for discriminator
+  for p in dis.parameters():
+    p.requires_grad = False
+
+  genOpt.zero_grad(set_to_none=True)
+  with autocast(enabled=Flags.AMP):
+    # the eikonal loss encourages the sdf to have unit gradient
+    eikonalLoss = ((normalLength - 1.0) ** 2.0).mean()
+
+    # the discriminator has been updated so we have to run the forward pass again
+    # see https://discuss.pytorch.org/t/how-to-detach-specific-components-in-the-loss/13983/12
+    label = torch.full((fake.shape[0],), 1.0, device=fake.device)
+    output = dis(fake).view(-1)
+    genLoss = criterion(output, label) + eikonal * eikonalLoss
+
+  # graph: loss -> discriminator -> generator
+  gradScaler.scale(genLoss).backward()
+  gradScaler.step(genOpt)
+
+  for p in dis.parameters():
+    p.requires_grad = True
+
+  return {'eikonal_loss': eikonalLoss.detach()}

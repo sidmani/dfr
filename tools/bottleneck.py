@@ -1,27 +1,7 @@
 import torch
+from argparse import ArgumentParser
 from torch.autograd.profiler import profile
-from torch.cuda.amp import GradScaler
-from dfr.__main__ import main
-from dfr.generator import Generator
-from dfr.hparams import HParams
-from dfr.raycast import MultiscaleFrustum
-from dfr.sdfNetwork import SDFNetwork
-from dfr.positional import createBasis
-from tqdm import tqdm
-
-# device = torch.device('cuda')
-# hp = HParams()
-# basis = createBasis(hp.positional, device)
-# sdf = SDFNetwork(hp, basis)
-# frustum = MultiscaleFrustum(hp.fov, hp.raycastSteps, device)
-# gen = Generator(sdf, frustum, hp).to(device)
-# scaler = GradScaler()
-
-with profile(use_cuda=True, profile_memory=True, with_stack=True) as prof:
-    main()
-    # for i in tqdm(range(10)):
-    #     gen.sample(10, device=device, gradScaler=scaler)
-
+from dfr.__main__ import main, setArgs
 
 # Arguments:
 #     sort_by (str, optional): Attribute used to sort entries. By default
@@ -35,6 +15,53 @@ with profile(use_cuda=True, profile_memory=True, with_stack=True) as prof:
 #         `lstm`, python `add` or other functions, nested events like low-level
 #         cpu/cuda ops events are omitted for profiler result readability.
 
-print(prof.key_averages(group_by_stack_n=10).table(row_limit=50, sort_by="cuda_time_total", top_level_events_only=True))
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    setArgs(parser)
+    parser.add_argument(
+        '--profile-sort',
+        dest='profile_sort',
+        default='cuda_time_total',
+        choices=[
+            'cpu_time',
+            'cuda_time',
+            'cpu_time_total',
+            'cuda_time_total',
+            'cpu_memory_usage',
+            'cuda_memory_usage',
+            'self_cpu_memory_usage',
+            'self_cuda_memory_usage',
+            'count'
+        ]
+    )
+    parser.add_argument(
+        '--profile-out',
+        dest='profile_out',
+        default='prof',
+        help='file to save profiler stats to'
+    )
+    parser.add_argument(
+        '--profile-trace',
+        dest='profile_trace',
+        action='store_true',
+        default=False,
+        help='Save a chrome://tracing trace file.'
+    )
+    args = parser.parse_args()
+    args.profile = True
+    args.no_log = True
 
-prof.export_chrome_trace('trace')
+    print(f'PROFILE: Starting main()...')
+    with profile(use_cuda=True, profile_memory=True, with_stack=True) as prof:
+        main(args)
+    print(f'PROFILE: main() has exited. Sorting results wrt {args.profile_sort}')
+
+
+    out = prof.key_averages(group_by_stack_n=10).table(row_limit=50, sort_by=args.profile_sort, top_level_events_only=True)
+    print(f'PROFILE: writing stats to {args.profile_out}.')
+    file = open(args.profile_out, 'w')
+    file.write(out)
+    file.close()
+
+    if args.profile_trace:
+        prof.export_chrome_trace('trace')

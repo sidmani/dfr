@@ -1,29 +1,43 @@
 import torch
 import torch.nn as nn
+import numpy as np
+
+class ResBlock(nn.Module):
+  def __init__(self, inChannels, outChannels, activation):
+    super().__init__()
+    self.layers = nn.Sequential(
+      nn.Conv2d(inChannels, inChannels, kernel_size=3, padding=1),
+      activation,
+      nn.Conv2d(inChannels, outChannels, kernel_size=3, padding=1),
+      activation,
+      nn.AvgPool2d(2),
+    )
+
+    self.skip = nn.Sequential(
+      nn.AvgPool2d(2),
+      nn.Conv2d(inChannels, outChannels, kernel_size=1, bias=False),
+    )
+
+  def forward(self, x):
+    return (self.layers(x) + self.skip(x)) / np.sqrt(2)
 
 class Discriminator(nn.Module):
-    def __init__(self, hparams, channels=4, fmapSize=64):
-        super().__init__()
-        # DC-GAN discriminator architecture
-        # batch norm omitted per WGAN-GP
-        # bias=False is only used with batch norm
-        self.layers = nn.ModuleList([
-            nn.Conv2d(channels, fmapSize, 4, 2, 1),
-            nn.Conv2d(fmapSize, fmapSize * 2, 4, 2, 1),
-            nn.Conv2d(fmapSize * 2, fmapSize * 4, 4, 2, 1),
-            nn.Conv2d(fmapSize * 4, fmapSize * 8, 4, 2, 1),
-            nn.Conv2d(fmapSize * 8, 1, 4, 2, 0)
-        ])
+  def __init__(self, hparams, resolution, channels):
+    super().__init__()
+    activation = nn.LeakyReLU(0.2)
+    blocks = []
+    logRes = int(np.floor(np.log2(resolution)))
+    for i in range(2, logRes + 1):
+      inChannels = hparams.channels[int(2 ** i)]
+      outChannels = hparams.channels[int(2 ** (i - 1))]
+      blocks.insert(0, ResBlock(inChannels, outChannels, activation))
 
-        # weight init, according to DC-GAN
-        for layer in self.layers:
-            nn.init.normal_(layer.weight.data, 0.0, 0.02)
+    self.layers = nn.Sequential(
+      nn.Conv2d(channels, hparams.channels[resolution], kernel_size=1),
+      activation,
+      nn.Sequential(*blocks),
+      nn.Conv2d(hparams.channels[2], 1, kernel_size=2),
+    )
 
-        self.activation = torch.nn.LeakyReLU()
-
-    def forward(self, x):
-        for i in range(4):
-            x = self.activation(self.layers[i](x))
-
-        # output is not a probability, so no sigmoid
-        return self.layers[4](x)
+  def forward(self, x):
+    return self.layers(x)
