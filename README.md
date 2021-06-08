@@ -3,12 +3,11 @@ This repository defines a GAN that can learn 3D geometry from images. The discri
 
 The system supports automatic mixed-precision, logging to Tensorboard (`/dfr/logger.py`), checkpointing (`/dfr/ckpt.py`). 
 
+Differentiable rendering is necessary to optimize the SDF, so I've built an extremely fast differentiable raycaster (`/dfr/raycast`). I think this is the coolest part of the code, so here is a detailed description. The rest of the code is either straightforward or has comments; you can run `python -m dfr --help` for runtime args. The `/tools/` directory contains several debugging tools.
+
 To get a preview of the raycaster in action, clone the repository, run `pip install -r requirements.txt`, and make sure you've got CUDA set up. Then run `python -m tools.raycast`, and you'll get something like this:
 
 ![cube](cube.png)
-
-
-Differentiable rendering is necessary to optimize the SDF, so I've built an extremely fast differentiable raycaster (`/dfr/raycast`). I think this is the coolest part of the code, so here is a detailed description. The rest of the code is either straightforward or has comments; you can run `python -m dfr --help` for runtime args. The `/tools/` directory contains several debugging tools.
 
 ## Differentiable raycaster
 
@@ -32,7 +31,7 @@ def rotateAxes(angles):
 ```
 The resulting matrix will rotate the coordinate frame such that the positive Z-axis points to the desired location. The advantage of this method is that once the axes are rotated, we no longer need to worry about rotating anything.
 
-Next, we construct a grid of rays aiming from the positive Z-axis (which is now rotated correctly)
+Next, we construct a grid of rays aiming from the positive Z-axis (which is now rotated correctly).
 ```python
 # construct a grid of rays viewing the origin from the camera
 # axes is a batch x 3 x 3 tensor representing the bases of the rotated coordinate frames
@@ -195,7 +194,7 @@ def grad(inputs, outputs, gradScaler=None):
 normals = grad(data.points, values, gradScaler)
 ```
 
-Finally, we'll need to shade the surfaces using the normal data and color data (also computed by the neural net).
+Finally, we'll need to shade the surfaces using the normal data and color data (also computed by the neural net). One point to remember is that we need to fuzz the edges, to have nonzero gradients. This is kind of tricky to get right, since fuzzing can improve the discriminator's ability to tell the real and fake images apart (and cause collapse), so the implementation here is just based on experimental data.
 ```python
 # compute an illumination map based on the angle between the light and the surface normal
 def illuminate(light, normals):
