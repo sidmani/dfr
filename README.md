@@ -3,7 +3,7 @@ This repository defines a GAN that can learn 3D geometry from images. The discri
 
 The system supports automatic mixed-precision, logging to Tensorboard (`/dfr/logger.py`), checkpointing (`/dfr/ckpt.py`). 
 
-To get a preview of the raycaster in action, clone the repository, run `pip install -r requirements.txt`, and make sure you've got CUDA set up. Then run `python -m tools.raycast`, and you'll get something like this:
+To get a preview of the raycaster in action, clone the repository, run `pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html`, and make sure you've got CUDA set up. Then run `python -m tools.raycast`, and you'll get something like this:
 
 ![cube](cube.png)
 
