@@ -5,7 +5,7 @@ The system supports automatic mixed-precision, logging to Tensorboard (`/dfr/log
 
 Differentiable rendering is necessary to optimize the SDF, so I've built an extremely fast differentiable raycaster (`/dfr/raycast`). I think this is the coolest part of the code, so here is a detailed description. The rest of the code is either straightforward or has comments; you can run `python -m dfr --help` for runtime args. The `/tools/` directory contains several debugging tools.
 
-To get a preview of the raycaster in action, clone the repository, run `pip install -r requirements.txt`, and make sure you've got CUDA set up. Then run `python -m tools.raycast`, and you'll get something like this:
+To get a preview of the raycaster in action, clone the repository, run `pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html`, and make sure you've got CUDA set up. Then run `python -m tools.raycast`, and you'll get something like this:
 
 ![cube](cube.png)
 
