@@ -7,8 +7,10 @@ To get a preview of the raycaster in action, clone the repository, run `pip inst
 
 ![cube](cube.png)
 
+
+Differentiable rendering is necessary to optimize the SDF, so I've built an extremely fast differentiable raycaster (`/dfr/raycast`). I think this is the coolest part of the code, so here is a detailed description. The rest of the code is either straightforward or has comments; you can run `python -m dfr --help` for runtime args. The `/tools/` directory contains several debugging tools.
+
 ## Differentiable raycaster
-Differentiable rendering is necessary to optimize the SDF, so I've built an extremely fast differentiable raycaster (`/dfr/raycast`). I think this is the coolest part of the code, so here is a detailed description.
 
 The camera angle is randomized per batch, in order to optimize all parts of the shapes. So the first step in raycasting is to construct a unitary 3D rotation matrix from a position on the unit sphere (given by 2 angles: theta, phi).
 ```python
@@ -175,7 +177,7 @@ def multiscale(axes, scales, latents, sdf, threshold, fov=25 * (np.pi / 180)):
 ```
 
 Once we have the desired points, we'll need to find the normals to the surface for the shading step. Since the surface is defined by a neural network, we can just compute the gradients as we usually do:
-```
+```python
 # a shortcut to compute a gradient, possibly with AMP
 def grad(inputs, outputs, gradScaler=None):
   if gradScaler is not None:
@@ -194,7 +196,7 @@ normals = grad(data.points, values, gradScaler)
 ```
 
 Finally, we'll need to shade the surfaces using the normal data and color data (also computed by the neural net).
-```
+```python
 # compute an illumination map based on the angle between the light and the surface normal
 def illuminate(light, normals):
   dot = torch.matmul(normals.view(light.shape[0], -1, 1, 3), light.view(-1, 1, 3, 1)).view(-1, 1)
@@ -227,4 +229,4 @@ def shade(values, textures, normals, light, sphereMask):
   return torch.cat([illumMap * colorMap * opacity, opacity], dim=1)
 ```
 
-And that's the renderer. The rest of the code is fairly straightforward (neural network definitions, dataloading, GAN training loop).
+And that's the renderer.
